@@ -28,7 +28,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy, *token, *save_ptr;
+  char *fn_copy, *save_ptr;
   tid_t tid;
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -37,13 +37,12 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-	//question - token yes, *token no ?
-  token = strtok_r(fn_copy, " ", &save_ptr);
-	strlcpy (fn_copy, file_name, PGSIZE);
+  strtok_r(file_name, " ", &save_ptr);
+	
 
   /* Create a new thread to execute FILE_NAME. */
 	//question token[0] addres??
-  tid = thread_create (token, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -51,40 +50,43 @@ process_execute (const char *file_name)
 
 void argument_stack(char **parse ,int count , void **esp)
 { 
-	void *arr[count];
 	int i;
+	void *arg_ptr[count];
 
-	for (i=0; i<count; i++)
+	for (i = count -1; i>=0; i--)
 	{
-		printf("%p\n", *esp);
-		printf("%d\n", sizeof(parse));
-		printf("%s\n", parse+1);
-		*esp -= strlen(parse+1)+1;
-		printf("222\n");
-		arr[count-i-1] = *esp;
-		strlcpy(*esp, parse+1, strlen(parse+1)+1);
+		*esp -= strlen(parse[i])+1;
+		arg_ptr[i] = *esp;
+		strlcpy(*esp, parse[i], strlen(parse[i])+1);
 	}
 
-	*esp -=4;
-	*(char *)*esp = '\0';
+	//unit8_t is 1byte.
+	//padding
+	*esp -= sizeof(uint8_t);
+	*(uint8_t*)*esp = 0;
 
-	*esp -= 4;
-	*(int *)*esp = 0;
+	*esp -= sizeof(char *);
+	*(char **)*esp = 0;
 
-	for (i=0; i<count; i++)
+	for(i = count-1; i >= 0; i--)
 	{
-		*esp -=4;
-		*(int *)*esp = arr[count-i-1];
+		*esp -= sizeof(char *);
+		*(char **)*esp = arg_ptr[i];
+	// *(char **)*esp = parse[i]; 로 쓰면 안되는 이유는
+	// (포인터 배열 하나 더만들어지는이유는)
+	// parse는 커널안에서 만들어진 동적배열이기때문에,
+	// echo프로그램이 주소 접근 불가(커널영역)
+	// 그래서 스택의 주소를 복사해놈	
 	}
 
-	*esp -= 4;
-	*(int *)*esp = *(int *)esp+1;
+	*esp -= sizeof(char **);
+	*(char ***)*esp = *esp + sizeof(char **);
 
-	*esp -= 4;
+	*esp -= sizeof(int);
 	*(int *)*esp = count;
 
-	*esp -= 4;
-	*(int *)*esp = 0;
+	*esp -= sizeof(void *);
+	*(void **)*esp = 0;
 
   /* 프로그램이름및인자(문자열) 저장*/
   /* word-align */
@@ -107,29 +109,15 @@ start_process (void *file_name_)
   int token_count = 0;
 	int i;
 
-	while(strtok_r(file_name, " ", &file_name))
-	{
-    token_count++;
-	}
-	file_name = file_name_;
+	file_name = palloc_get_page (0);
+	if (file_name == NULL)
+		thread_exit ();
 
-	parse = ((char**)malloc(sizeof(char*)*token_count));
-	
-	for(i=0;i<token_count;i++)
-	{
-		char *to = strtok_r(file_name, " ", &file_name);
-printf("1");
-		parse[i] = ((char*)malloc(sizeof(char)*(strlen(to)+1)));
-printf("2\n");
-		strlcpy(parse[i], to, strlen(to)+1);
-printf("%s %d %d\n",parse[i], sizeof(parse[i]), sizeof(parse));
-	}
-	file_name = file_name_;
-
-	for(i=0;i<token_count;i++)
-	{
-		printf("%s\n", parse[i]);
-	}
+	//file_name = file_name_;라고 하면 포인터 바껴서 
+	//palloc_free_page할때 메모리 누수가능성있음.
+	//동적 할당 했던 주소를 free 해줘야 하는데 다른데를 해제 하려고 해서 ERROR
+	strlcpy (file_name, file_name_, PGSIZE);
+	strtok_r(file_name, " ", &save_ptr);
 
   struct intr_frame if_;
   bool success;
@@ -141,17 +129,27 @@ printf("%s %d %d\n",parse[i], sizeof(parse[i]), sizeof(parse));
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-	token = strtok_r(file_name, " ", &save_ptr);
-
   //디스크에서 echo에 해당하는 실행파일을 찾아서 메모리에 적재를하고, 
   //그 실행파일의 메인함수로 점프를 해주는 것임. 
-	success = load(token, &if_.eip, &if_.esp);
-  argument_stack(parse, token_count, &if_.esp);
+	success = load(file_name, &if_.eip, &if_.esp);
+
+	token_count++;
+	while(strtok_r(NULL, " ", &save_ptr))
+	{
+		token_count++;
+	}
+
+	parse = ((char**)malloc((sizeof(char*))*token_count));
+	strlcpy (file_name, file_name_, PGSIZE);
+
+	for(token = strtok_r(file_name, " ", &save_ptr), i = 0; token != NULL; token = strtok_r(NULL, " ", &save_ptr), i++)
+	{
+		parse[i] = token;
+	}
+
 	//void argument_stack(char **parse ,int count , void **esp)
-	
+  argument_stack(parse, token_count, &if_.esp);
 	hex_dump((uintptr_t)if_.esp, if_.esp, (size_t)(PHYS_BASE-if_.esp), true);
-	//hex_dump((uintptr_t)if_.esp, if_.esp, (size_t)(PHYS_BASE – if_.esp), true);
- 	printf("444\n");
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
