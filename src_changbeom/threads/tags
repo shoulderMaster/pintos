@@ -1,0 +1,356 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+ARENA_MAGIC	malloc.c	47;"	d	file:
+BITMASK	vaddr.h	15;"	d
+CR0_EM	start.S	/^#define CR0_EM 0x00000004      \/* (Floating-point) Emulation. *\/$/;"	d
+CR0_PE	start.S	/^#define CR0_PE 0x00000001      \/* Protection Enable. *\/$/;"	d
+CR0_PG	start.S	/^#define CR0_PG 0x80000000      \/* Paging. *\/$/;"	d
+CR0_WP	start.S	/^#define CR0_WP 0x00010000      \/* Write-Protect enable in kernel mode. *\/$/;"	d
+DEPENDS	build/Makefile	/^DEPENDS = $(patsubst %.o,%.d,$(OBJECTS))$/;"	m
+FLAG_IF	flags.h	6;"	d
+FLAG_MBS	flags.h	5;"	d
+INTR_CNT	interrupt.c	22;"	d	file:
+INTR_OFF	interrupt.h	/^    INTR_OFF,             \/* Interrupts disabled. *\/$/;"	e	enum:intr_level
+INTR_ON	interrupt.h	/^    INTR_ON               \/* Interrupts enabled. *\/$/;"	e	enum:intr_level
+LOADER_ARGS	loader.h	18;"	d
+LOADER_ARGS_LEN	loader.h	24;"	d
+LOADER_ARG_CNT	loader.h	19;"	d
+LOADER_ARG_CNT_LEN	loader.h	25;"	d
+LOADER_BASE	loader.h	5;"	d
+LOADER_END	loader.h	6;"	d
+LOADER_KERN_BASE	loader.h	9;"	d
+LOADER_PARTS	loader.h	17;"	d
+LOADER_PARTS_LEN	loader.h	23;"	d
+LOADER_PHYS_BASE	loader.h	13;"	d
+LOADER_SIG	loader.h	16;"	d
+LOADER_SIG_LEN	loader.h	22;"	d
+OBJECTS	build/Makefile	/^OBJECTS = $(patsubst %.c,%.o,$(patsubst %.S,%.o,$(SOURCES)))$/;"	m
+PAL_ASSERT	palloc.h	/^    PAL_ASSERT = 001,           \/* Panic on failure. *\/$/;"	e	enum:palloc_flags
+PAL_USER	palloc.h	/^    PAL_USER = 004              \/* User page. *\/$/;"	e	enum:palloc_flags
+PAL_ZERO	palloc.h	/^    PAL_ZERO = 002,             \/* Zero page contents. *\/$/;"	e	enum:palloc_flags
+PDBITS	pte.h	28;"	d
+PDMASK	pte.h	29;"	d
+PDSHIFT	pte.h	27;"	d
+PGBITS	vaddr.h	19;"	d
+PGMASK	vaddr.h	21;"	d
+PGSHIFT	vaddr.h	18;"	d
+PGSIZE	vaddr.h	20;"	d
+PHYS_BASE	vaddr.h	53;"	d
+PIC0_CTRL	interrupt.c	16;"	d	file:
+PIC0_DATA	interrupt.c	17;"	d	file:
+PIC1_CTRL	interrupt.c	18;"	d	file:
+PIC1_DATA	interrupt.c	19;"	d	file:
+PRI_DEFAULT	thread.h	24;"	d
+PRI_MAX	thread.h	25;"	d
+PRI_MIN	thread.h	23;"	d
+PTBITS	pte.h	22;"	d
+PTE_A	pte.h	67;"	d
+PTE_ADDR	pte.h	62;"	d
+PTE_AVL	pte.h	63;"	d
+PTE_D	pte.h	68;"	d
+PTE_FLAGS	pte.h	61;"	d
+PTE_P	pte.h	64;"	d
+PTE_U	pte.h	66;"	d
+PTE_W	pte.h	65;"	d
+PTMASK	pte.h	24;"	d
+PTSHIFT	pte.h	21;"	d
+PTSPAN	pte.h	23;"	d
+REAL	intr-stubs.S	/^#define REAL                                    \\$/;"	d
+SEL_KCSEG	loader.h	30;"	d
+SEL_KDSEG	loader.h	31;"	d
+SEL_NULL	loader.h	29;"	d
+SOURCES	build/Makefile	/^SOURCES = $(foreach dir,$(KERNEL_SUBDIRS),$($(dir)_SRC))$/;"	m
+SRCDIR	build/Makefile	/^SRCDIR = ..\/..$/;"	m
+STUB	intr-stubs.S	/^#define STUB(NUMBER, TYPE)                      \\$/;"	d
+SWITCH_CUR	switch.h	36;"	d
+SWITCH_NEXT	switch.h	37;"	d
+THREADS_FLAGS_H	flags.h	2;"	d
+THREADS_INIT_H	init.h	2;"	d
+THREADS_INTERRUPT_H	interrupt.h	2;"	d
+THREADS_INTR_STUBS_H	intr-stubs.h	2;"	d
+THREADS_IO_H	io.h	2;"	d
+THREADS_LOADER_H	loader.h	2;"	d
+THREADS_MALLOC_H	malloc.h	2;"	d
+THREADS_PALLOC_H	palloc.h	2;"	d
+THREADS_PTE_H	pte.h	2;"	d
+THREADS_SWITCH_H	switch.h	2;"	d
+THREADS_SYNCH_H	synch.h	2;"	d
+THREADS_THREAD_H	thread.h	2;"	d
+THREADS_VADDR_H	vaddr.h	2;"	d
+THREAD_BLOCKED	thread.h	/^    THREAD_BLOCKED,     \/* Waiting for an event to trigger. *\/$/;"	e	enum:thread_status
+THREAD_DYING	thread.h	/^    THREAD_DYING        \/* About to be destroyed. *\/$/;"	e	enum:thread_status
+THREAD_MAGIC	thread.c	21;"	d	file:
+THREAD_READY	thread.h	/^    THREAD_READY,       \/* Not running but ready to run. *\/$/;"	e	enum:thread_status
+THREAD_RUNNING	thread.h	/^    THREAD_RUNNING,     \/* Running thread. *\/$/;"	e	enum:thread_status
+TID_ERROR	thread.h	20;"	d
+TIME_SLICE	thread.c	54;"	d	file:
+_end	build/threads/kernel.lds.s	/^  _end = .;$/;"	d
+_end	kernel.lds.S	/^  _end = .;$/;"	d
+_end_bss	build/threads/kernel.lds.s	/^  _end_bss = .;$/;"	d
+_end_bss	kernel.lds.S	/^  _end_bss = .;$/;"	d
+_end_kernel_text	build/threads/kernel.lds.s	/^       _end_kernel_text = .; }$/;"	d
+_end_kernel_text	kernel.lds.S	/^	      _end_kernel_text = .; }$/;"	d
+_signature	build/threads/kernel.lds.s	/^     _signature = .; LONG(0xaa55aa55) }$/;"	d
+_signature	kernel.lds.S	/^	    _signature = .; LONG(0xaa55aa55) }$/;"	d
+_start	build/threads/kernel.lds.s	/^  _start = 0xc0000000 + 0x20000;$/;"	d
+_start	kernel.lds.S	/^  _start = LOADER_PHYS_BASE + LOADER_KERN_BASE;$/;"	d
+_start_bss	build/threads/kernel.lds.s	/^  _start_bss = .;$/;"	d
+_start_bss	kernel.lds.S	/^  _start_bss = .;$/;"	d
+all_list	thread.c	/^static struct list all_list;$/;"	v	typeref:struct:list	file:
+allelem	thread.h	/^    struct list_elem allelem;           \/* List element for all threads list. *\/$/;"	m	struct:thread	typeref:struct:thread::list_elem
+alloc_frame	thread.c	/^alloc_frame (struct thread *t, size_t size) $/;"	f	file:
+allocate_tid	thread.c	/^allocate_tid (void) $/;"	f	file:
+arena	malloc.c	/^struct arena $/;"	s	file:
+arena_to_block	malloc.c	/^arena_to_block (struct arena *a, size_t idx) $/;"	f	file:
+aux	thread.c	/^    void *aux;                  \/* Auxiliary data for function. *\/$/;"	m	struct:kernel_thread_frame	file:
+barrier	synch.h	49;"	d
+base	palloc.c	/^    uint8_t *base;                      \/* Base of pool. *\/$/;"	m	struct:pool	file:
+block	malloc.c	/^struct block $/;"	s	file:
+block_size	malloc.c	/^    size_t block_size;          \/* Size of each element in bytes. *\/$/;"	m	struct:desc	file:
+block_size	malloc.c	/^block_size (void *block) $/;"	f	file:
+block_to_arena	malloc.c	/^block_to_arena (struct block *b)$/;"	f	file:
+blocks_per_arena	malloc.c	/^    size_t blocks_per_arena;    \/* Number of blocks in an arena. *\/$/;"	m	struct:desc	file:
+bss_init	init.c	/^bss_init (void) $/;"	f	file:
+calloc	malloc.c	/^calloc (size_t a, size_t b) $/;"	f
+check_partition	loader.S	/^check_partition:$/;"	l
+cond_broadcast	synch.c	/^cond_broadcast (struct condition *cond, struct lock *lock) $/;"	f
+cond_init	synch.c	/^cond_init (struct condition *cond)$/;"	f
+cond_signal	synch.c	/^cond_signal (struct condition *cond, struct lock *lock UNUSED) $/;"	f
+cond_wait	synch.c	/^cond_wait (struct condition *cond, struct lock *lock) $/;"	f
+condition	synch.h	/^struct condition $/;"	s
+cs	interrupt.h	/^    uint16_t cs, :16;           \/* Code segment for eip. *\/$/;"	m	struct:intr_frame
+cur	switch.h	/^    struct thread *cur;         \/* 20: switch_threads()'s CUR argument. *\/$/;"	m	struct:switch_threads_frame	typeref:struct:switch_threads_frame::thread
+desc	malloc.c	/^    struct desc *desc;          \/* Owning descriptor, null for big block. *\/$/;"	m	struct:arena	typeref:struct:arena::desc	file:
+desc	malloc.c	/^struct desc$/;"	s	file:
+desc_cnt	malloc.c	/^static size_t desc_cnt;         \/* Number of descriptors. *\/$/;"	v	file:
+descs	malloc.c	/^static struct desc descs[10];   \/* Descriptors. *\/$/;"	v	typeref:struct:desc	file:
+devices_SRC	build/Makefile	/^devices_SRC  = devices\/pit.c		# Programmable interrupt timer chip.$/;"	m
+ds	interrupt.h	/^    uint16_t ds, :16;           \/* Saved DS segment register. *\/$/;"	m	struct:intr_frame
+eax	interrupt.h	/^    uint32_t eax;               \/* Saved EAX. *\/$/;"	m	struct:intr_frame
+ebp	interrupt.h	/^    uint32_t ebp;               \/* Saved EBP. *\/$/;"	m	struct:intr_frame
+ebp	switch.h	/^    uint32_t ebp;               \/*  8: Saved %ebp. *\/$/;"	m	struct:switch_threads_frame
+ebx	interrupt.h	/^    uint32_t ebx;               \/* Saved EBX. *\/$/;"	m	struct:intr_frame
+ebx	switch.h	/^    uint32_t ebx;               \/* 12: Saved %ebx. *\/$/;"	m	struct:switch_threads_frame
+ecx	interrupt.h	/^    uint32_t ecx;               \/* Saved ECX. *\/$/;"	m	struct:intr_frame
+edi	interrupt.h	/^    uint32_t edi;               \/* Saved EDI. *\/$/;"	m	struct:intr_frame
+edi	switch.h	/^    uint32_t edi;               \/*  0: Saved %edi. *\/$/;"	m	struct:switch_threads_frame
+edx	interrupt.h	/^    uint32_t edx;               \/* Saved EDX. *\/$/;"	m	struct:intr_frame
+eflags	interrupt.h	/^    uint32_t eflags;            \/* Saved CPU flags. *\/$/;"	m	struct:intr_frame
+eip	interrupt.h	/^    void (*eip) (void);         \/* Next instruction to execute. *\/$/;"	m	struct:intr_frame
+eip	switch.h	/^    void (*eip) (void);         \/* 16: Return address. *\/$/;"	m	struct:switch_threads_frame
+eip	switch.h	/^    void (*eip) (void);$/;"	m	struct:switch_entry_frame
+eip	thread.c	/^    void *eip;                  \/* Return address. *\/$/;"	m	struct:kernel_thread_frame	file:
+elem	synch.c	/^    struct list_elem elem;              \/* List element. *\/$/;"	m	struct:semaphore_elem	typeref:struct:semaphore_elem::list_elem	file:
+elem	thread.h	/^    struct list_elem elem;              \/* List element. *\/$/;"	m	struct:thread	typeref:struct:thread::list_elem
+error_code	interrupt.h	/^    uint32_t error_code;        \/* Error code. *\/$/;"	m	struct:intr_frame
+es	interrupt.h	/^    uint16_t es, :16;           \/* Saved ES segment register. *\/$/;"	m	struct:intr_frame
+esi	interrupt.h	/^    uint32_t esi;               \/* Saved ESI. *\/$/;"	m	struct:intr_frame
+esi	switch.h	/^    uint32_t esi;               \/*  4: Saved %esi. *\/$/;"	m	struct:switch_threads_frame
+esp	interrupt.h	/^    void *esp;                  \/* Saved stack pointer. *\/$/;"	m	struct:intr_frame
+esp_dummy	interrupt.h	/^    uint32_t esp_dummy;         \/* Not used. *\/$/;"	m	struct:intr_frame
+filesys_SRC	build/Makefile	/^filesys_SRC  = filesys\/filesys.c	# Filesystem core.$/;"	m
+filesys_bdev_name	init.c	/^static const char *filesys_bdev_name;$/;"	v	file:
+format_filesys	init.c	/^static bool format_filesys;$/;"	v	file:
+frame_pointer	interrupt.h	/^    void *frame_pointer;        \/* Saved EBP (frame pointer). *\/$/;"	m	struct:intr_frame
+free	malloc.c	/^free (void *p) $/;"	f
+free_cnt	malloc.c	/^    size_t free_cnt;            \/* Free blocks; pages in big block. *\/$/;"	m	struct:arena	file:
+free_elem	malloc.c	/^    struct list_elem free_elem; \/* Free list element. *\/$/;"	m	struct:block	typeref:struct:block::list_elem	file:
+free_list	malloc.c	/^    struct list free_list;      \/* List of free blocks. *\/$/;"	m	struct:desc	typeref:struct:desc::list	file:
+fs	interrupt.h	/^    uint16_t fs, :16;           \/* Saved FS segment register. *\/$/;"	m	struct:intr_frame
+function	thread.c	/^    thread_func *function;      \/* Function to call. *\/$/;"	m	struct:kernel_thread_frame	file:
+gdt	start.S	/^gdt:$/;"	l
+gdtdesc	start.S	/^gdtdesc:$/;"	l
+gs	interrupt.h	/^    uint16_t gs, :16;           \/* Saved GS segment register. *\/$/;"	m	struct:intr_frame
+holder	synch.h	/^    struct thread *holder;      \/* Thread holding lock (for debugging). *\/$/;"	m	struct:lock	typeref:struct:lock::thread
+idle	thread.c	/^idle (void *idle_started_ UNUSED) $/;"	f	file:
+idle_thread	thread.c	/^static struct thread *idle_thread;$/;"	v	typeref:struct:thread	file:
+idle_ticks	thread.c	/^static long long idle_ticks;    \/* # of timer ticks spent idle. *\/$/;"	v	file:
+idt	interrupt.c	/^static uint64_t idt[INTR_CNT];$/;"	v	file:
+in_external_intr	interrupt.c	/^static bool in_external_intr;   \/* Are we processing an external interrupt? *\/$/;"	v	file:
+inb	io.h	/^inb (uint16_t port)$/;"	f
+init_page_dir	init.c	/^uint32_t *init_page_dir;$/;"	v
+init_pool	palloc.c	/^init_pool (struct pool *p, void *base, size_t page_cnt, const char *name) $/;"	f	file:
+init_ram_pages	start.S	/^init_ram_pages:$/;"	l
+init_thread	thread.c	/^init_thread (struct thread *t, const char *name, int priority)$/;"	f	file:
+initial_thread	thread.c	/^static struct thread *initial_thread;$/;"	v	typeref:struct:thread	file:
+inl	io.h	/^inl (uint16_t port)$/;"	f
+insb	io.h	/^insb (uint16_t port, void *addr, size_t cnt)$/;"	f
+insl	io.h	/^insl (uint16_t port, void *addr, size_t cnt)$/;"	f
+insw	io.h	/^insw (uint16_t port, void *addr, size_t cnt)$/;"	f
+intr_context	interrupt.c	/^intr_context (void) $/;"	f
+intr_disable	interrupt.c	/^intr_disable (void) $/;"	f
+intr_dump_frame	interrupt.c	/^intr_dump_frame (const struct intr_frame *f) $/;"	f
+intr_enable	interrupt.c	/^intr_enable (void) $/;"	f
+intr_entry	intr-stubs.S	/^intr_entry:$/;"	l
+intr_exit	intr-stubs.S	/^intr_exit:$/;"	l
+intr_frame	interrupt.h	/^struct intr_frame$/;"	s
+intr_get_level	interrupt.c	/^intr_get_level (void) $/;"	f
+intr_handler	interrupt.c	/^intr_handler (struct intr_frame *frame) $/;"	f
+intr_handler_func	interrupt.h	/^typedef void intr_handler_func (struct intr_frame *);$/;"	t
+intr_handlers	interrupt.c	/^static intr_handler_func *intr_handlers[INTR_CNT];$/;"	v	file:
+intr_init	interrupt.c	/^intr_init (void)$/;"	f
+intr_level	interrupt.h	/^enum intr_level $/;"	g
+intr_name	interrupt.c	/^intr_name (uint8_t vec) $/;"	f
+intr_names	interrupt.c	/^static const char *intr_names[INTR_CNT];$/;"	v	file:
+intr_register_ext	interrupt.c	/^intr_register_ext (uint8_t vec_no, intr_handler_func *handler,$/;"	f
+intr_register_int	interrupt.c	/^intr_register_int (uint8_t vec_no, int dpl, enum intr_level level,$/;"	f
+intr_set_level	interrupt.c	/^intr_set_level (enum intr_level level) $/;"	f
+intr_stub_func	intr-stubs.h	/^typedef void intr_stub_func (void);$/;"	t
+intr_stubs	intr-stubs.S	/^intr_stubs:$/;"	l
+intr_yield_on_return	interrupt.c	/^intr_yield_on_return (void) $/;"	f
+inw	io.h	/^inw (uint16_t port)$/;"	f
+is_kernel_vaddr	vaddr.h	/^is_kernel_vaddr (const void *vaddr) $/;"	f
+is_thread	thread.c	/^is_thread (struct thread *t)$/;"	f	file:
+is_user_vaddr	vaddr.h	/^is_user_vaddr (const void *vaddr) $/;"	f
+kernel_SRC	build/Makefile	/^lib\/kernel_SRC  = lib\/kernel\/debug.c	# Debug helpers.$/;"	m
+kernel_pool	palloc.c	/^static struct pool kernel_pool, user_pool;$/;"	v	typeref:struct:pool	file:
+kernel_thread	thread.c	/^kernel_thread (thread_func *function, void *aux) $/;"	f	file:
+kernel_thread_frame	thread.c	/^struct kernel_thread_frame $/;"	s	file:
+kernel_ticks	thread.c	/^static long long kernel_ticks;  \/* # of timer ticks in kernel threads. *\/$/;"	v	file:
+lib_SRC	build/Makefile	/^lib_SRC  = lib\/debug.c			# Debug helpers.$/;"	m
+load_kernel	loader.S	/^load_kernel:$/;"	l
+locate_block_device	init.c	/^locate_block_device (enum block_type role, const char *name)$/;"	f	file:
+locate_block_devices	init.c	/^locate_block_devices (void)$/;"	f	file:
+lock	malloc.c	/^    struct lock lock;           \/* Lock. *\/$/;"	m	struct:desc	typeref:struct:desc::lock	file:
+lock	palloc.c	/^    struct lock lock;                   \/* Mutual exclusion. *\/$/;"	m	struct:pool	typeref:struct:pool::lock	file:
+lock	synch.h	/^struct lock $/;"	s
+lock_acquire	synch.c	/^lock_acquire (struct lock *lock)$/;"	f
+lock_held_by_current_thread	synch.c	/^lock_held_by_current_thread (const struct lock *lock) $/;"	f
+lock_init	synch.c	/^lock_init (struct lock *lock)$/;"	f
+lock_release	synch.c	/^lock_release (struct lock *lock) $/;"	f
+lock_try_acquire	synch.c	/^lock_try_acquire (struct lock *lock)$/;"	f
+magic	malloc.c	/^    unsigned magic;             \/* Always set to ARENA_MAGIC. *\/$/;"	m	struct:arena	file:
+magic	thread.h	/^    unsigned magic;                     \/* Detects stack overflow. *\/$/;"	m	struct:thread
+main	init.c	/^main (void)$/;"	f
+make_gate	interrupt.c	/^make_gate (void (*function) (void), int dpl, int type)$/;"	f	file:
+make_idtr_operand	interrupt.c	/^make_idtr_operand (uint16_t limit, void *base)$/;"	f	file:
+make_intr_gate	interrupt.c	/^make_intr_gate (void (*function) (void), int dpl)$/;"	f	file:
+make_trap_gate	interrupt.c	/^make_trap_gate (void (*function) (void), int dpl)$/;"	f	file:
+malloc	malloc.c	/^malloc (size_t size) $/;"	f
+malloc_init	malloc.c	/^malloc_init (void) $/;"	f
+name	thread.h	/^    char name[16];                      \/* Name (for debugging purposes). *\/$/;"	m	struct:thread
+next	switch.h	/^    struct thread *next;        \/* 24: switch_threads()'s NEXT argument. *\/$/;"	m	struct:switch_threads_frame	typeref:struct:switch_threads_frame::thread
+next_char	loader.S	/^next_char:$/;"	l
+next_drive	loader.S	/^next_drive:$/;"	l
+next_partition	loader.S	/^next_partition:$/;"	l
+next_sector	loader.S	/^next_sector:$/;"	l
+next_thread_to_run	thread.c	/^next_thread_to_run (void) $/;"	f	file:
+no_boot_partition	loader.S	/^no_boot_partition:$/;"	l
+no_such_drive	loader.S	/^no_such_drive:$/;"	l
+outb	io.h	/^outb (uint16_t port, uint8_t data)$/;"	f
+outl	io.h	/^outl (uint16_t port, uint32_t data)$/;"	f
+outsb	io.h	/^outsb (uint16_t port, const void *addr, size_t cnt)$/;"	f
+outsl	io.h	/^outsl (uint16_t port, const void *addr, size_t cnt)$/;"	f
+outsw	io.h	/^outsw (uint16_t port, const void *addr, size_t cnt)$/;"	f
+outw	io.h	/^outw (uint16_t port, uint16_t data)$/;"	f
+page_from_pool	palloc.c	/^page_from_pool (const struct pool *pool, void *page) $/;"	f	file:
+pagedir	thread.h	/^    uint32_t *pagedir;                  \/* Page directory. *\/$/;"	m	struct:thread
+paging_init	init.c	/^paging_init (void)$/;"	f	file:
+palloc_flags	palloc.h	/^enum palloc_flags$/;"	g
+palloc_free_multiple	palloc.c	/^palloc_free_multiple (void *pages, size_t page_cnt) $/;"	f
+palloc_free_page	palloc.c	/^palloc_free_page (void *page) $/;"	f
+palloc_get_multiple	palloc.c	/^palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)$/;"	f
+palloc_get_page	palloc.c	/^palloc_get_page (enum palloc_flags flags) $/;"	f
+palloc_init	palloc.c	/^palloc_init (size_t user_page_limit)$/;"	f
+parse_options	init.c	/^parse_options (char **argv) $/;"	f	file:
+pd_no	pte.h	/^static inline uintptr_t pd_no (const void *va) {$/;"	f
+pde_create	pte.h	/^static inline uint32_t pde_create (uint32_t *pt) {$/;"	f
+pde_get_pt	pte.h	/^static inline uint32_t *pde_get_pt (uint32_t pde) {$/;"	f
+pg_no	vaddr.h	/^static inline uintptr_t pg_no (const void *va) {$/;"	f
+pg_ofs	vaddr.h	/^static inline unsigned pg_ofs (const void *va) {$/;"	f
+pg_round_down	vaddr.h	/^static inline void *pg_round_down (const void *va) {$/;"	f
+pg_round_up	vaddr.h	/^static inline void *pg_round_up (const void *va) {$/;"	f
+pic_end_of_interrupt	interrupt.c	/^pic_end_of_interrupt (int irq) $/;"	f	file:
+pic_init	interrupt.c	/^pic_init (void)$/;"	f	file:
+pool	palloc.c	/^struct pool$/;"	s	file:
+popa_ret	loader.S	/^popa_ret:$/;"	l
+priority	thread.h	/^    int priority;                       \/* Priority. *\/$/;"	m	struct:thread
+pt_no	pte.h	/^static inline unsigned pt_no (const void *va) {$/;"	f
+pte_create_kernel	pte.h	/^static inline uint32_t pte_create_kernel (void *page, bool writable) {$/;"	f
+pte_create_user	pte.h	/^static inline uint32_t pte_create_user (void *page, bool writable) {$/;"	f
+pte_get_page	pte.h	/^static inline void *pte_get_page (uint32_t pte) {$/;"	f
+ptov	vaddr.h	/^ptov (uintptr_t paddr)$/;"	f
+putc	loader.S	/^putc:	pusha$/;"	l
+puts	loader.S	/^puts:	xchg %si, %ss:(%esp)$/;"	l
+read_command_line	init.c	/^read_command_line (void) $/;"	f	file:
+read_failed	loader.S	/^read_failed:$/;"	l
+read_mbr	loader.S	/^read_mbr:$/;"	l
+read_sector	loader.S	/^read_sector:$/;"	l
+ready_list	thread.c	/^static struct list ready_list;$/;"	v	typeref:struct:list	file:
+realloc	malloc.c	/^realloc (void *old_block, size_t new_size) $/;"	f
+register_handler	interrupt.c	/^register_handler (uint8_t vec_no, int dpl, enum intr_level level,$/;"	f	file:
+run_actions	init.c	/^run_actions (char **argv) $/;"	f	file:
+run_task	init.c	/^run_task (char **argv)$/;"	f	file:
+running_thread	thread.c	/^running_thread (void) $/;"	f
+schedule	thread.c	/^schedule (void) $/;"	f	file:
+scratch_bdev_name	init.c	/^static const char *scratch_bdev_name;$/;"	v	file:
+sema_down	synch.c	/^sema_down (struct semaphore *sema) $/;"	f
+sema_init	synch.c	/^sema_init (struct semaphore *sema, unsigned value) $/;"	f
+sema_self_test	synch.c	/^sema_self_test (void) $/;"	f
+sema_test_helper	synch.c	/^sema_test_helper (void *sema_) $/;"	f	file:
+sema_try_down	synch.c	/^sema_try_down (struct semaphore *sema) $/;"	f
+sema_up	synch.c	/^sema_up (struct semaphore *sema) $/;"	f
+semaphore	synch.c	/^    struct semaphore semaphore;         \/* This semaphore. *\/$/;"	m	struct:semaphore_elem	typeref:struct:semaphore_elem::semaphore	file:
+semaphore	synch.h	/^    struct semaphore semaphore; \/* Binary semaphore controlling access. *\/$/;"	m	struct:lock	typeref:struct:lock::semaphore
+semaphore	synch.h	/^struct semaphore $/;"	s
+semaphore_elem	synch.c	/^struct semaphore_elem $/;"	s	file:
+ss	interrupt.h	/^    uint16_t ss, :16;           \/* Data segment for esp. *\/$/;"	m	struct:intr_frame
+stack	thread.h	/^    uint8_t *stack;                     \/* Saved stack pointer. *\/$/;"	m	struct:thread
+start	loader.S	/^start:$/;"	l
+start	start.S	/^start:$/;"	l
+status	thread.h	/^    enum thread_status status;          \/* Thread state. *\/$/;"	m	struct:thread	typeref:enum:thread::thread_status
+swap_bdev_name	init.c	/^static const char *swap_bdev_name;$/;"	v	file:
+switch_entry	switch.S	/^switch_entry:$/;"	l
+switch_entry_frame	switch.h	/^struct switch_entry_frame$/;"	s
+switch_threads	switch.S	/^switch_threads:$/;"	l
+switch_threads_frame	switch.h	/^struct switch_threads_frame $/;"	s
+thread	thread.h	/^struct thread$/;"	s
+thread_action_func	thread.h	/^typedef void thread_action_func (struct thread *t, void *aux);$/;"	t
+thread_block	thread.c	/^thread_block (void) $/;"	f
+thread_create	thread.c	/^thread_create (const char *name, int priority,$/;"	f
+thread_current	thread.c	/^thread_current (void) $/;"	f
+thread_exit	thread.c	/^thread_exit (void) $/;"	f
+thread_foreach	thread.c	/^thread_foreach (thread_action_func *func, void *aux)$/;"	f
+thread_func	thread.h	/^typedef void thread_func (void *aux);$/;"	t
+thread_get_load_avg	thread.c	/^thread_get_load_avg (void) $/;"	f
+thread_get_nice	thread.c	/^thread_get_nice (void) $/;"	f
+thread_get_priority	thread.c	/^thread_get_priority (void) $/;"	f
+thread_get_recent_cpu	thread.c	/^thread_get_recent_cpu (void) $/;"	f
+thread_init	thread.c	/^thread_init (void) $/;"	f
+thread_mlfqs	thread.c	/^bool thread_mlfqs;$/;"	v
+thread_name	thread.c	/^thread_name (void) $/;"	f
+thread_print_stats	thread.c	/^thread_print_stats (void) $/;"	f
+thread_schedule_tail	thread.c	/^thread_schedule_tail (struct thread *prev)$/;"	f
+thread_set_nice	thread.c	/^thread_set_nice (int nice UNUSED) $/;"	f
+thread_set_priority	thread.c	/^thread_set_priority (int new_priority) $/;"	f
+thread_stack_ofs	thread.c	/^uint32_t thread_stack_ofs = offsetof (struct thread, stack);$/;"	v
+thread_start	thread.c	/^thread_start (void) $/;"	f
+thread_status	thread.h	/^enum thread_status$/;"	g
+thread_tick	thread.c	/^thread_tick (void) $/;"	f
+thread_ticks	thread.c	/^static unsigned thread_ticks;   \/* # of timer ticks since last yield. *\/$/;"	v	file:
+thread_tid	thread.c	/^thread_tid (void) $/;"	f
+thread_unblock	thread.c	/^thread_unblock (struct thread *t) $/;"	f
+thread_yield	thread.c	/^thread_yield (void) $/;"	f
+threads_SRC	build/Makefile	/^threads_SRC  = threads\/start.S		# Startup code.$/;"	m
+tid	thread.h	/^    tid_t tid;                          \/* Thread identifier. *\/$/;"	m	struct:thread
+tid_lock	thread.c	/^static struct lock tid_lock;$/;"	v	typeref:struct:lock	file:
+tid_t	thread.h	/^typedef int tid_t;$/;"	t
+unexpected_cnt	interrupt.c	/^static unsigned int unexpected_cnt[INTR_CNT];$/;"	v	file:
+unexpected_interrupt	interrupt.c	/^unexpected_interrupt (const struct intr_frame *f)$/;"	f	file:
+usage	init.c	/^usage (void)$/;"	f	file:
+used_map	palloc.c	/^    struct bitmap *used_map;            \/* Bitmap of free pages. *\/$/;"	m	struct:pool	typeref:struct:pool::bitmap	file:
+user_page_limit	init.c	/^static size_t user_page_limit = SIZE_MAX;$/;"	v	file:
+user_pool	palloc.c	/^static struct pool kernel_pool, user_pool;$/;"	v	typeref:struct:	file:
+user_ticks	thread.c	/^static long long user_ticks;    \/* # of timer ticks in user programs. *\/$/;"	v	file:
+userprog_SRC	build/Makefile	/^userprog_SRC  = userprog\/process.c	# Process loading.$/;"	m
+value	synch.h	/^    unsigned value;             \/* Current value. *\/$/;"	m	struct:semaphore
+vec_no	interrupt.h	/^    uint32_t vec_no;            \/* Interrupt vector number. *\/$/;"	m	struct:intr_frame
+vtop	vaddr.h	/^vtop (const void *vaddr)$/;"	f
+waiters	synch.h	/^    struct list waiters;        \/* List of waiting threads. *\/$/;"	m	struct:condition	typeref:struct:condition::list
+waiters	synch.h	/^    struct list waiters;        \/* List of waiting threads. *\/$/;"	m	struct:semaphore	typeref:struct:semaphore::list
+yield_on_return	interrupt.c	/^static bool yield_on_return;    \/* Should we yield on interrupt return? *\/$/;"	v	file:
+zero	intr-stubs.S	/^#define zero                                    \\$/;"	d
