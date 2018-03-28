@@ -135,9 +135,9 @@ char** _get_argv(char* file_name)
 
 void argument_stack(char **parse, int count, void **esp) 
 {
-  char **tmp_argv;
-  int i, str_size, align_size, tmp_buffer;
-  void* RETURN_ADDRESS = NULL;
+  char **tmp_argv, **tmp_pointer;
+  int i, str_size, align_size;
+  const void* RETURN_ADDRESS = 0x00000000;
   
   tmp_argv = (char**)malloc(sizeof(char*)*count);
 
@@ -157,18 +157,22 @@ void argument_stack(char **parse, int count, void **esp)
   for (i = count - 1; i >= 0; i--)
   {
     *esp -= sizeof(tmp_argv[i]);
-    memcpy(*esp, &tmp_argv[i], sizeof(tmp_argv[i]));
+    *(char**)*esp = tmp_argv[i];
+    //memcpy(*esp, &tmp_argv[i], sizeof(tmp_argv[i]));
   }
 
-  tmp_buffer = *esp;
+  tmp_pointer = *esp;
   *esp -= sizeof(char**);
-  memcpy(*esp, &tmp_buffer, sizeof(char**));
+  *(char***)*esp = tmp_pointer;
+  //memcpy(*esp, &tmp_buffer, sizeof(char**));
 
   *esp -= sizeof(int);
-  memcpy(*esp, &count, sizeof(int));
+  *(int*)*esp = count;
+  //memcpy(*esp, &count, sizeof(int));
 
   *esp -= 4;
-  memcpy(*esp, &RETURN_ADDRESS, 4);
+  *(void**)*esp = RETURN_ADDRESS;
+  //memcpy(*esp, &RETURN_ADDRESS, 4);
 
   free(tmp_argv);
 
