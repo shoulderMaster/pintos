@@ -137,7 +137,7 @@ void argument_stack(char **parse, int count, void **esp)
 {
   char **tmp_argv, **tmp_pointer;
   int i, str_size, align_size;
-  const void* RETURN_ADDRESS = 0x00000000;
+  void * const RETURN_ADDRESS = 0x00000000;
   
   tmp_argv = (char**)malloc(sizeof(char*)*count);
 
