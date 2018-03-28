@@ -68,10 +68,10 @@ void argument_stack(char **parse ,int count , void **esp)
 	//padding
 	*esp -= sizeof(uint8_t);
 	*(uint8_t*)*esp = 0;
-
+    */
 	*esp -= sizeof(char *);
 	*(char **)*esp = 0;
-    */
+    
 	for(i = count-1; i >= 0; i--)
 	{
 		*esp -= sizeof(char *);
