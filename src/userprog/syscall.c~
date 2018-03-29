@@ -95,6 +95,7 @@ syscall_handler (struct intr_frame *f)
 
 	default :
 		thread_exit();
+		//halt();
 
 }
 	//printf ("system call!\n");
