@@ -8,19 +8,13 @@
 
 static void syscall_handler (struct intr_frame *);
 
+//idt
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-void check_address(void*addr)
-{
-	/* 주소값이유저영역에서사용하는주소값인지확인하는함수		
-	유저영역을벗어난영역일경우프로세스종료(exit(-1)) */
-	if(addr > 0xC0000000 || addr < 0x8048000)
-		exit(-1);
-}
 void halt(void)
 {
 	shutdown_power_off();
@@ -38,16 +32,24 @@ void exit(int status)
 
 bool create(const char *file , unsigned initial_size)
 {
-/* 파일이름과크기에해당하는파일생성*/
-/* 파일생성성공시true 반환, 실패시false 반환*/
-return filesys_create(file, initial_size);
+	/* 파일이름과크기에해당하는파일생성*/
+	/* 파일생성성공시true 반환, 실패시false 반환*/
+	return filesys_create(file, initial_size);
 }
 
 bool remove(const char*file)
 {
-/* 파일이름에해당하는파일을제거*/
-/* 파일제거성공시true 반환, 실패시false 반환*/
-return filesys_remove(file);
+	/* 파일이름에해당하는파일을제거*/
+	/* 파일제거성공시true 반환, 실패시false 반환*/
+	return filesys_remove(file);
+}
+
+void check_address(void*addr)
+{
+	/* 주소값이유저영역에서사용하는주소값인지확인하는함수		
+	유저영역을벗어난영역일경우프로세스종료(exit(-1)) */
+	if(addr > 0xC0000000 || addr < 0x8048000)
+		exit(-1);
 }
 
 void get_argument(void* esp, int* arg, int count)
@@ -92,10 +94,14 @@ syscall_handler (struct intr_frame *f)
 		get_argument((f->esp), arg, 1);
 		remove((const char*)arg[0]);
 		break;
+	case SYS_WRITE :
+		get_argument((f->esp), arg, 3);
+		printf("hi \n");
+		printf("%d, %d, %d\n", arg[0], arg[1], arg[2]);
 
 	default :
+		printf("bye");
 		thread_exit();
-		//halt();
 
 }
 	//printf ("system call!\n");

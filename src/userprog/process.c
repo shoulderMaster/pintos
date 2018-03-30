@@ -59,16 +59,17 @@ void argument_stack(char **parse ,int count , void **esp)
 		arg_ptr[i] = *esp;
 		strlcpy(*esp, parse[i], strlen(parse[i])+1);
 	}
-   
-    // 0x3 -> 0011 얘랑 esp랑 AND연산한 값만큼 패딩해주면 esp주소가 32bit 단위로 addressing가능해져서 memory I/O효율이 유리해짐.  
+  
+    // bit mask
+	// 0x3 -> 0011 얘랑 esp랑 AND연산한 값만큼 패딩해주면
+	// esp주소가 32bit 단위로 addressing가능해져서 memory I/O효율이 유리해짐.  
     align_size = (((int)*esp)&0x00000003);
-    *esp -= align_size;
+    *esp -= align_size; //(뒤의 2자리를 00으로만듬)
     memset(*esp, 0x00, align_size);
-	/*//unit8_t is 1byte.
-	//padding
-	*esp -= sizeof(uint8_t);
-	*(uint8_t*)*esp = 0;
-    */
+	
+	// unit8_t is 1byte. padding
+	// *esp -= sizeof(uint8_t); *(uint8_t*)*esp = 0;
+    
 	*esp -= sizeof(char *);
 	*(char **)*esp = 0;
     
