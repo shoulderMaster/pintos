@@ -23,6 +23,8 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 int _get_argc(char* file_name);
 char** _get_argv(char* file_name);
 void argument_stack(char **parse, int count, void **esp);
+struct thread *get_child_process (int pid);
+void remove_child_process (struct thread *cp); 
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -63,11 +65,6 @@ start_process (void *file_name_)
   
   argc = _get_argc(file_name);
   argv = _get_argv(file_name);
-
-  for (i = 0; i < argc; i ++) {
-    printf("debug : argv[%d] = %s\n", i, argv[i]);
-  }
-
  
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -76,15 +73,25 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
+  sema_up (&thread_current()->load_sema);
   /* If load failed, quit. */
- 
-  argument_stack(argv, argc, &if_.esp);
-  hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
   
-  palloc_free_page (file_name);
-  free(argv);
 
-  if (!success)  thread_exit ();
+  if (!success)
+  {
+    thread_exit ();
+
+  } else {
+ 
+    thread_current()->loaded = true;
+    thread_current()->exit_status = true;
+    thread_current()->exited = 0;
+    argument_stack(argv, argc, &if_.esp);
+    hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
+  }
+
+  //palloc_free_page (file_name);
+  free (argv);
 
 
 
@@ -154,6 +161,9 @@ void argument_stack(char **parse, int count, void **esp)
   *esp -= align_size;
   memset(*esp, 0x00, align_size);
 
+  *esp -= sizeof(char*);
+  *(char**)*esp = 0;
+
   for (i = count - 1; i >= 0; i--)
   {
     *esp -= sizeof(tmp_argv[i]);
@@ -180,6 +190,28 @@ void argument_stack(char **parse, int count, void **esp)
 
 }
 
+struct thread *get_child_process (int pid) 
+{
+  struct thread *cur = thread_current(), *tmp_t;
+  struct list_elem *elem;
+
+  for (elem = cur->child_list.head.next; elem != cur->child_list.tail.prev; elem = elem->next)
+  {
+    tmp_t = list_entry (elem, struct thread, child_elem);
+    if (pid ==  tmp_t->tid)
+      {
+        return tmp_t;
+      }
+  }
+  return NULL;
+}
+
+void remove_child_process (struct thread *cp) 
+{
+  list_remove (&cp->child_elem);
+  palloc_free_page(cp);
+}
+
 
 /* Waits for thread TID to die and returns its exit status.  If
    it was terminated by the kernel (i.e. killed due to an
@@ -191,9 +223,27 @@ void argument_stack(char **parse, int count, void **esp)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_pid) 
 {
-  return -1;
+  struct thread *child = NULL;
+  int status = 0;
+
+  child = get_child_process(child_pid);
+
+  if (!child) 
+  {
+    return -1;
+  }
+
+  if (!child->exited)
+  {
+    sema_down(&child->exit_sema);
+  }
+
+  status = child->exit_status;
+  remove_child_process(child);
+  
+  return status;
 }
 
 /* Free the current process's resources. */
@@ -208,7 +258,7 @@ process_exit (void)
   pd = cur->pagedir;
   if (pd != NULL) 
     {
-      /* Correct ordering here is crucial.  We must set
+        /* Correct ordering here is crucial.  We must set
          cur->pagedir to NULL before switching page directories,
          so that a timer interrupt can't switch back to the
          process page directory.  We must activate the base page

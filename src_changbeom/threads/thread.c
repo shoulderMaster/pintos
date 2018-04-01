@@ -206,6 +206,14 @@ thread_create (const char *name, int priority,
 
   intr_set_level (old_level);
 
+  t->parent = thread_current();
+  t->loaded = false;
+  t->exited = false;
+  sema_init(&t->load_sema, 0);
+  sema_init(&t->exit_sema, 0);
+  list_push_back(&thread_current()->child_list, &t->child_elem);
+  
+  
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -264,6 +272,7 @@ struct thread *
 thread_current (void) 
 {
   struct thread *t = running_thread ();
+
   
   /* Make sure T is really a thread.
      If either of these assertions fire, then your thread may
@@ -288,6 +297,7 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
+  
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
@@ -299,6 +309,13 @@ thread_exit (void)
      when it calls thread_schedule_tail(). */
   intr_disable ();
   list_remove (&thread_current()->allelem);
+
+  thread_current ()->exited = true;
+  /* don't sema_up if current process is "main" or "idle" process */
+  if (!(thread_current()->tid == 1 || thread_current()->tid == 2)) 
+  {
+    sema_up (&thread_current ()->exit_sema);
+  }
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
@@ -470,6 +487,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
+
+  list_init(&t->child_list);
+
+
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -541,7 +562,7 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
-      palloc_free_page (prev);
+      //palloc_free_page (prev);
     }
 }
 

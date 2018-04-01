@@ -4,7 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-
+#include "synch.h"
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -92,6 +92,31 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+        
+    /* 부모 프로세스의 디스크립터 */
+    struct thread *parent;
+
+    /* 자식 리스트 element */
+    struct list_elem child_elem;//?
+        
+    /* 자식 리스트 */
+    struct list child_list;
+    
+    /* 프로세스의 프로그램 메모리 탑재 유무 */
+    bool loaded;
+           
+    /* 프로세스가 종료 유무 확인 */
+    bool exited;
+
+    /* exit 세마포어 */
+    struct semaphore exit_sema;
+           
+    /* load 세마포어 */
+    struct semaphore load_sema;
+
+    /* exit 호출 시 종료 status */
+    int exit_status;
+
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
