@@ -95,8 +95,12 @@ start_process (void *file_name_)
   /* If load failed, quit. */
   if (!success)
   {
-    thread_exit ();
 
+    /* 스레드가 비정상 종료인 것을 알리기 위해 
+       그냥 thread_exit()로 종료하는 것이 아닌,
+       PCB->exit_status에 종료코드로 -1를 넣어 비정상 종료임을 표시함. */
+    thread_current()->exit_status = -1;
+    thread_exit ();
   } else {
     
     /* 프로세스가 성공적으로 load되었으면
@@ -303,7 +307,7 @@ process_wait (tid_t child_pid)
 }
 
 /* Free the current process's resources. */
-void세
+void
 process_exit (void)
 {
   struct thread *cur = thread_current ();

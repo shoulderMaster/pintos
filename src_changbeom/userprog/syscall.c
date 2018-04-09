@@ -155,7 +155,7 @@ pid_t exec (const *cmd_line)
   if(!child->loaded) 
   {
     sema_down (&child->load_sema); // 자식 프로세스가 완전히 load 될 때까지 기다린다.
-  } else if (!child->exit_status) {
+  } else if (child->exit_status == -1) { // 자식 프로세스가 비정상 종료된 경우 return -1를 함
  
     return -1;
   }
