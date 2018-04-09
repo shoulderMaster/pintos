@@ -42,7 +42,13 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+  
 
+  /*  실행 파일 이름과 인자가 한 문자열로 되어 있는 file_name을 tokenize하여
+      실행 파일 이름을 가져옴.
+      strtok_r()의 리턴 값을 따로 받을 필요없이 file_name을 그대로 사용해도 되지만,
+      가독성을 위해 _trimed_file_name 변수에 따로 받아서 사용함.
+     */
   _trimed_file_name = strtok_r(file_name, " ", &_saved_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
@@ -63,34 +69,55 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
   
-  argc = _get_argc(file_name);
+  /* file_name에 프로그램 이름과 인자들을 각각 구분하여 잘라
+     문자열 포인터 배열을 반환함.
+     내부적으로 malloc을 사용하여 메모리 동적 할당을 하기 때문에
+     사용을 마치고 나면 반드시 리턴 값에 대해 free를 해줘야함.  */
   argv = _get_argv(file_name);
- 
+  
+  // 인자의 개수를 셈.
+  argc = _get_argc(file_name);
+  
+
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-
-  sema_up (&thread_current()->load_sema);
-  /* If load failed, quit. */
   
-
+  /* load()에 의해 ELF파일이 프로세스 주소공간에 로드가 완료되면
+     부모 프로세스에게 세마포어 객체를 up하여 이를 알림.
+     부모 프로세스는 갓 생성한 자식 프로세스가 load를 마칠 때 까지 block상태로 기다림.
+  */
+  sema_up (&thread_current()->load_sema);
+  
+  /* If load failed, quit. */
   if (!success)
   {
     thread_exit ();
 
   } else {
- 
+    
+    /* 프로세스가 성공적으로 load되었으면
+       PCB에 해당하는 thread 구조체의 
+       현재 프로세스 로드 상태,
+       현재 프로세스 종료 상태 코드
+       현재 프로세스 종료 여부 등을 초기화함.
+    */
     thread_current()->loaded = true;
-    thread_current()->exit_status = true;
-    thread_current()->exited = 0;
+    thread_current()->exit_status = 0;
+    thread_current()->exited = false;
+
+    /* 새로 실행될 프로세스는 커널 메모리 영역에 있는 인자들을
+       그대로 사용할 수 없다.
+       프로세스의 유저 스택에 현재 커널에 저장된 argc랑 argv를 복사해서 넘겨준다.
+    */
     argument_stack(argv, argc, &if_.esp);
-    hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
   }
 
-  //palloc_free_page (file_name);
+  // get_argv() 의 리턴값으로 받아온 동적할당 메모리 주소를 해제함.
+  // file_name_에 대한 해제는 process_execute()에서 수행함
   free (argv);
 
 
@@ -105,6 +132,7 @@ start_process (void *file_name_)
   NOT_REACHED ();
 }
 
+// command_line에서 인자의 개수를 세어서 리턴함.
 int _get_argc(char* file_name)
 {
   char *tmp_argv, *save_ptr, *tmp_str;
@@ -124,6 +152,8 @@ int _get_argc(char* file_name)
 
 }
 
+/* command_line으로 받아온 문자열을 바로 tokenize하여 사용하기 보다,
+   새로 메모리 동적할당을 받아 복사를 하여 tokenize해서 해당 문자열 포인터 배열을 반환함. */
 char** _get_argv(char* file_name) 
 {
   char **argv, *save_ptr, *tmp_str;
@@ -140,15 +170,18 @@ char** _get_argv(char* file_name)
   return argv;
 }
 
+// 인자를 새로 실행될 프로세스의 유저 스택에다가 복사하여 넘겨주는 함수
 void argument_stack(char **parse, int count, void **esp) 
 {
   char **tmp_argv, **tmp_pointer;
   int i, str_size, align_size;
+  
+  // for fake return address
   void * const RETURN_ADDRESS = 0x00000000;
   
   tmp_argv = (char**)malloc(sizeof(char*)*count);
 
-
+  // for문을 돌며 인자를 구성하는 문자열들을 스택에 넣고 임시배열에 각 문자열들을 가리키는 포인터를 저장함.
   for (i = count - 1; i >= 0; i--) 
   {
     str_size = sizeof(char)*(strlen(parse[i]) + 1);
@@ -157,55 +190,69 @@ void argument_stack(char **parse, int count, void **esp)
     tmp_argv[i] = *esp;
   }
   
+  /* 4바이트 단위의 효율적 메모리 접근을 위해
+     esp를 4의 배수로 만들고 그 사이를 0으로 패딩함.
+     mod 연산이 직관적일 수는 있겠지만 굳이 연산 효율을 고려한다면
+     비트연산이 보다 낫다고 판단되어 비트 마스킹으로 구현함. */
   align_size = (((int)*esp)&0x00000003);
   *esp -= align_size;
   memset(*esp, 0x00, align_size);
 
+  // argv[argc] 에 0x00000000을 넣어주어서 argv의 마지막임을 표시.
+  // 사실 근데 argv에 접근할 때는 ebp기준으로 argc만큼 접근하기 때문에 이런 표시 없이도 동작 가능.
   *esp -= sizeof(char*);
   *(char**)*esp = 0;
-
+  
+  // for 문을 돌면서 임시 배열에 저장해 놓았던 argv[]를 유저스택에 PUSH함
   for (i = count - 1; i >= 0; i--)
   {
     *esp -= sizeof(tmp_argv[i]);
     *(char**)*esp = tmp_argv[i];
-    //memcpy(*esp, &tmp_argv[i], sizeof(tmp_argv[i]));
   }
-
+  
+  // for 문을 돌고나면 esp가 argv시작주소를 가리킴. 이 esp 값을 유저스택에 argv로서 저장함.
   tmp_pointer = *esp;
   *esp -= sizeof(char**);
   *(char***)*esp = tmp_pointer;
-  //memcpy(*esp, &tmp_buffer, sizeof(char**));
-
+  
+  // argc를 유저 스택에 PUSH함 
   *esp -= sizeof(int);
   *(int*)*esp = count;
-  //memcpy(*esp, &count, sizeof(int));
 
+  // fake return address를 push하여 스택 프레임을 형성함.
   *esp -= 4;
   *(void**)*esp = RETURN_ADDRESS;
-  //memcpy(*esp, &RETURN_ADDRESS, 4);
 
+  //사용을 마친 임시 배열을 해제함.
   free(tmp_argv);
-
-
 
 }
 
+/* 현재 프로세스의 자식프로세스 중 pid를 검색하여 PCB를 리턴함.
+   검색된 pid가 없으면 null을 리턴함.
+   */
 struct thread *get_child_process (int pid) 
 {
   struct thread *cur = thread_current(), *tmp_t;
   struct list_elem *elem;
-
+  
+  // for문을 자식 프로세스 리스트 head.next부터 tail.prev 까지 돌면서 pid(tid)를 검색함. 
   for (elem = cur->child_list.head.next; elem != cur->child_list.tail.prev; elem = elem->next)
   {
     tmp_t = list_entry (elem, struct thread, child_elem);
     if (pid ==  tmp_t->tid)
       {
+        
+        // 해당하는 pid를 찾으면 해당자식 프로세스의 PCB 리턴.
         return tmp_t;
       }
   }
   return NULL;
 }
 
+/* 인자로 받아온 PCB를 해제함. 
+   부모 프로세스가 자식프로세스의 종료를 기다리고 
+   자식프로세스의 PCB를 해제하기 위해 사용. */
 void remove_child_process (struct thread *cp) 
 {
   list_remove (&cp->child_elem);
@@ -227,19 +274,28 @@ process_wait (tid_t child_pid)
 {
   struct thread *child = NULL;
   int status = 0;
-
+  
+  /* 인자로 받아온 자식 프로세스의 pid를 자식 프로세스 리스트에서 linear search하여 
+     해당 프로세스의 PCB를 가져옴*/
   child = get_child_process(child_pid);
-
-  if (!child) 
+  
+  // 해당 pid를 가진 자식 프로세스가 없으면 null을 리턴값으로 받아 옴. return -1로 wait함수를 종료시킴.
+  if (!child)
   {
     return -1;
   }
 
+
+  /*  wait하고자 하는 자식 프로세스가 아직 종료가 안되었다면 
+      프로세스가 종료되고 sema_up될 때까지 block상태로 기다린다.*/
   if (!child->exited)
   {
     sema_down(&child->exit_sema);
   }
 
+  
+  /*  자식 프로세스 종료 코드를 받아오고 
+      자식 프로세스의 PCB를 해제하는 작업을 함. */
   status = child->exit_status;
   remove_child_process(child);
   
@@ -247,7 +303,7 @@ process_wait (tid_t child_pid)
 }
 
 /* Free the current process's resources. */
-void
+void세
 process_exit (void)
 {
   struct thread *cur = thread_current ();
