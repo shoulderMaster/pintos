@@ -565,7 +565,7 @@ thread_schedule_tail (struct thread *prev)
   /* Start new time slice. */
   thread_ticks = 0;
 
-#ifdef USERPROG스
+#ifdef USERPROG
   /* Activate the new address space. */
   process_activate ();
 #endif
