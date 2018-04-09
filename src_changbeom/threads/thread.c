@@ -180,7 +180,8 @@ thread_create (const char *name, int priority,
   if (t == NULL)
     return TID_ERROR;
 
-  /* Initialize thread. */
+  /* 새 스레드를 생성하고 초기화를 함.
+     PCB에 새로 추가한 자식 프로세스 리스트 멤버를 여기 init_thread()에서 초기화함. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
@@ -205,12 +206,19 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   intr_set_level (old_level);
-
+  /* PCB가 생성되면 PCB 내부의 몇몇 멤버 변수들을 초기화함.
+     부모 프로세스
+     현재 프로그램이 프로세스 메모리 공간에 load됐는지 여부
+     현재 프로세스가 종료됐는지 여부
+     로드용, 종료용 세마포어 객체
+   */
   t->parent = thread_current();
   t->loaded = false;
   t->exited = false;
   sema_init(&t->load_sema, 0);
   sema_init(&t->exit_sema, 0);
+
+  //커널에서 관리하는 모든 프로세스 리스트 구조체에 새로 생성된 PCB를 삽입함.
   list_push_back(&thread_current()->child_list, &t->child_elem);
   
   
@@ -308,12 +316,19 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
-  list_remove (&thread_current()->allelem);
 
+  // 커널에서 전체 프로세스 목록을 관리하는 리스트에서 종료하고자 하는 프로세스 PCB element를 제거함.
+  list_remove (&thread_current()->allelem);
+  
+  // 현재 프로세스의 PCB에 종료된 프로세스임을 표시함.
   thread_current ()->exited = true;
-  /* don't sema_up if current process is "main" or "idle" process */
+
+  /* 커널이 부팅하고 나서 첫번째와 두번째로 생기는 main 프로세스와 idle프로세스는 
+     PCB내부의 세마포어 객체를 사용하지 않고 커널에서 관리하는 전용 전역 semaphore객체를 사용하므로
+     PCB 내부의 세마포어 객체를 다루는 이 루틴에서 main 프로세스와 idle프로세스에 대해선 작동하지 않게함.*/
   if (!(thread_current()->tid == 1 || thread_current()->tid == 2)) 
   {
+    // 종료 세마포어 객체를 up하여 wait하고 있는 부모프로세스에게 프로세스 종료를 알림.
     sema_up (&thread_current ()->exit_sema);
   }
   thread_current ()->status = THREAD_DYING;
@@ -487,7 +502,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
-
+  
+  // 자식 리스트 구조체 멤버를 초기화 함.
   list_init(&t->child_list);
 
 
@@ -549,7 +565,7 @@ thread_schedule_tail (struct thread *prev)
   /* Start new time slice. */
   thread_ticks = 0;
 
-#ifdef USERPROG
+#ifdef USERPROG스
   /* Activate the new address space. */
   process_activate ();
 #endif
