@@ -18,7 +18,7 @@ void exit (int status);
 bool create (const char *file, unsigned initial_size);
 bool remove (const char *file);
 pid_t exec (const *cmd_line);
-
+int wait (tid_t tid);
 
 void
 syscall_init (void) 
@@ -61,9 +61,15 @@ syscall_handler (struct intr_frame *f UNUSED)
         f->eax = arg[0];
         break;
 
-    /*
+    case SYS_WAIT :
+        get_argument (esp, arg, 1);
+        f->eax = wait ((tid_t)arg[0]);
+        break;
+
+   /* 
     case SYS_WRITE :
         get_argument(esp, arg, 3);
+        printf("%d %s %d\n", arg[0], arg[1], arg[2]);
         break;
     */
 
@@ -87,6 +93,13 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   }
 
+}
+
+
+/* user mode에서도 process_wait를 사용할 수 있도록 시스템 콜에 추가함 */
+int wait(tid_t tid) 
+{
+  return process_wait(tid);
 }
 
 
@@ -152,11 +165,11 @@ pid_t exec (const *cmd_line)
   child_pid = process_execute (cmd_line);
   child = get_child_process (child_pid);
   
-  if(!child->loaded) 
+  sema_down (&child->load_sema); // 자식 프로세스가 완전히 load 될 때까지 기다린다.
+  
+  // 자식 프로세스가 비정상 종료된 경우 return -1를 함
+  if (child->exit_status == -1) 
   {
-    sema_down (&child->load_sema); // 자식 프로세스가 완전히 load 될 때까지 기다린다.
-  } else if (child->exit_status == -1) { // 자식 프로세스가 비정상 종료된 경우 return -1를 함
- 
     return -1;
   }
   
