@@ -115,9 +115,6 @@ struct thread
 	struct semaphore load_sema; //load 세마포어
 	int exit_status; //exit 호출시 종료status
 
-	struct file **fdt; //파일디스크립터 테이블을 가리키는 포인터
-	int next_fd; //다음 할당할 fd값 추가
-
 };
 
 /* If false (default), use round-robin scheduler.

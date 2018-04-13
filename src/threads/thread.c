@@ -15,6 +15,8 @@
 #include "userprog/process.h"
 #endif
 
+#define MAX_FDT 64
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -176,7 +178,7 @@ thread_create (const char *name, int priority,
   ASSERT (function != NULL);
 
   /* Allocate thread. */
-  t = palloc_get_page (PAL_ZERO);
+  t = palloc_get_page (PAL_ZERO); // 4kb메모리공간을 할당하면서 pcb를 선언하는것임
   if (t == NULL)
     return TID_ERROR;
 
@@ -205,6 +207,28 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   intr_set_level (old_level);
+	
+	/* 부모프로세스저장*/
+	t->parent = thread_current();
+	/* 프로그램이 로드되지않음*/
+	t->loaded = false;
+	/* 프로세스가 종료되지않음*/
+	t->exited = false;
+	/* exit 세마포어0으로초기화*/
+	sema_init(&t->exit_sema, 0); 
+	/* load 세마포어0으로초기화*/
+	sema_init(&t->load_sema, 0); 
+	/* 부모프로세스의 자식리스트에추가*/
+	list_push_back(&thread_current()->child_list, &t->child_elem);
+	
+	/* File Descriptor 테이블에 메모리할당*/
+	t->fdt = (struct file**)malloc(sizeof(struct file *)*MAX_FDT);
+	// t->fdt = palloc_get_page(0);
+	/* fd값2로초기화(0,1은표준입력,출력)*/
+	t->next_fd = 2;
+
+	
+
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -298,11 +322,24 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
+
   list_remove (&thread_current()->allelem);
+	
+	//수정
+	thread_current()->exited = true;	
+	/* 커널이 부팅하고 나서 첫번째와 두번째로 생기는 main 프로세스와 idle프로세스는 PCB내부의 세마포어 객체를 사용하지 않고 커널에서 관리하는 전용 전역 semaphore객체를 사용하므로 PCB 내부의 세마포어 객체를 다루는 이 루틴에서 main 프로세스와 idle프로세스에 대해선 작동하지 않게함.*/
+  if (!(thread_current()->tid == 1 || thread_current()->tid == 2)) 
+  {
+    // 종료 세마포어 객체를 up하여 wait하고 있는 부모프로세스에게 프로세스 종료를 알림.
+    sema_up(&thread_current()->exit_sema);
+  }
+	// EXIT_CODE WHERE???	
+
   thread_current ()->status = THREAD_DYING;
-  schedule ();
+	schedule ();
   NOT_REACHED ();
 }
+
 
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
@@ -470,6 +507,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
+
+	/* 자식리스트 초기화*/
+	list_init(&t->child_list);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -541,7 +581,7 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
-      palloc_free_page (prev);
+      //palloc_free_page (prev);
     }
 }
 

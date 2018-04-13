@@ -15,6 +15,81 @@ syscall_init (void)
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
+int open(const char *file)
+{
+	struct file *f = filesys_open(file); //실패할 경우 NULL을 리턴
+	int fd;
+
+	if (!f) 
+		return -1;
+	fd = process_add_file(f);
+	if (!fd)
+		return -1;
+	return fd;
+}
+
+int filesize(int fd)
+{
+	struct file *f = process_get_file(fd);
+	if (!f)
+		return -1;
+	return file_length(f);
+}
+
+int read(int fd, void *buffer, unsigned size)
+{
+	//fd -> file pointer !  
+	struct file *f = process_get_file(fd);
+	if(f) {
+		//파일에 내용 쓰는함수
+		return file_read(f, buffer, size);
+	} 
+	// f가 널이여도 단순히 -1 로 반환해주면안됨.
+	//fdt 에서 0인 파일은 파일 사이즈가 없음, stdin.stdout은 filesize가 0이므로 -1 리턴 하는게 맞음. 그렇지만 read함수에서는 읽고 쓸수있게 작업을 해줘야함.
+	else if(fd == 0) {
+		int i;
+		//input_getc()가 개행문자열을 가져온다 하면 브레키크 해서 멈춰야함. 
+		for (i=0; i<size; i++) {
+			burffer[i] = input_getc();
+			if(input_getc() == "\0") {
+				i++;
+				break;
+			}
+		}
+		return i;
+	}
+}
+
+int write(int fd, void *buffer, unsigned size)
+{
+	struct file *f = process_get_file(fd);
+	if(f) {
+		return file_write(f, buffer,size);
+	} 
+	else if(fd ==1) {
+		putbuf(buffer,size);
+		return size;	
+	}
+}
+
+void seek (int fd, unsigned position)
+{
+	struct file *f = process_get_file(fd);
+	file_seek(f, position);
+}
+
+unsigned tell(int fd)
+{
+	struct file *f = process_get_file(fd);
+	file_tell(f);
+}
+
+void close(int fd)
+{
+	process_close_file(fd);
+}
+
+//
 void halt(void)
 {
 	shutdown_power_off();
@@ -22,12 +97,21 @@ void halt(void)
 
 void exit(int status)
 {
+	struct thread *cur = thread_current();
+	cur->exit_status = status;
+
 	/* 실행중인스레드구조체를가져옴
 	struct thread *thread_current = thread_current(); */
 	/* 스레드이름과 exit status 출력*/
 	printf("thread name : %s, status : %d\n", thread_name(), status);
 	/* 스레드종료*/
 	thread_exit();
+}
+
+void wait(tid_t pid)
+{
+	/* process_wait()사용, 자식프로세스가종료될때까지대기*/	
+	process_wait(pid);
 }
 
 bool create(const char *file , unsigned initial_size)
@@ -64,6 +148,28 @@ void get_argument(void* esp, int* arg, int count)
 	}
 }
 
+tid_t exec(const char *cmd_line)
+{
+  struct thread *child = NULL;
+  pid_t child_pid = 0;
+  
+  // cmd_line의 프로그램과 인자들을 실행할 자식 프로세스를 생성함.
+  child_pid = process_execute (cmd_line);
+	// 커널은 생성된 자식프로세스의 pid에 해당하는 pcb를 찾고, pcb의 세마포어에 접근해야함.
+  child = get_child_process(child_pid);
+  
+	// 자식 프로세스로 실행흐름이 변경되어, 자식프로세스가 schedule()함수를 호출할동안 READY상태로 대기한다
+	sema_down (&child->load_sema); 
+	if (&child->exit_status == -1) { // 여기서 그냥 else나 else(child->loaded)하게되면,
+																	 // 로드가 다 되어서 true로 바뀌었을때도 return -1을 하게됨.
+    return -1;
+  }
+  
+	return child_pid;
+
+
+}
+
 static void
 syscall_handler (struct intr_frame *f) 
 {
@@ -94,13 +200,19 @@ syscall_handler (struct intr_frame *f)
 		get_argument((f->esp), arg, 1);
 		remove((const char*)arg[0]);
 		break;
+	//for test
 	case SYS_WRITE :
-		get_argument((f->esp), arg, 3);
-		printf("hi \n");
-		printf("%d, %d, %d\n", arg[0], arg[1], arg[2]);
-
+		//get_argument((f->esp), arg, 3);
+		//printf("hi \n");
+		//printf("%d, %d, %d\n", arg[0], arg[1], arg[2]);
+		printf ("system call!\n");
+		break;
+	case SYS_EXEC :
+		get_argument((f->esp), arg, 1);
+		exec((const char *)arg[0]);
+		break;
 	default :
-		printf("bye");
+		//printf("bye");
 		thread_exit();
 
 }
