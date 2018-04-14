@@ -118,6 +118,9 @@ struct thread
 	struct file **fdt; //파일디스크립터 테이블을 가리키는 포인터
 	int next_fd; //다음 할당할 fd값 추가
 
+	/* 프로그램 파일을 가리키는 파일구조체 포인터추가*/
+	struct file *run_file;
+	
 };
 
 /* If false (default), use round-robin scheduler.

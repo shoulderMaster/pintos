@@ -47,9 +47,14 @@ struct file* process_get_file(int fd)
 
 void process_close_file(int fd)
 {
-	struct thread *t = thread_current();
-	file_close(t->fdt[fd]);
+	/* fd에 해당하는파일을 file_close()를 호출하여 inode reference count를 1감소*/
+	struct file *f = process_get_file(fd);
+	file_close(f);
+	/* 파일디스크립터테이블 해당엔트리를 NULL값으로 초기화*/
+	f = NULL;
+	thread_current()->next_fd = fd;
 }
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -281,8 +286,23 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+	
+	/* 실행중인 파일close*/
+	file_allow_write(cur->run_file);
 
-  /* Destroy the current process's page directory and switch back
+	/* 프로세스에 열린 모든파일을 process_close_file(int fd)함수를 호출하여 
+	inode referece 값 1감소
+	process_close_file(int fd) : 파일디스크립터에 해당하는 파일을 닫고 해당 엔트리초기화
+	파일디스크립터 테이블의 최대값을 이용해 파일디스크립터의 최소값인2가될때까지 파일을닫음*/
+	int i;	
+	for (i =2; < i<MAX_FDT; i++) {
+		process_close_file(i);
+	}
+
+	/* 파일디스크립터테이블메모리해제*/
+  free(cur->fdt);
+
+	/* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
   if (pd != NULL) 
@@ -407,6 +427,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+	/* filesys_lock획득*/
+	filesys_lock(file_name);
+
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
@@ -414,6 +437,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
+
+	/* thread 구조체의run_file을 현재실행할파일로초기화*/
+	t->run_file = file;
+	/* file_deny_write()를이용하여파일에대한write를거부*/
+	file_deny_write(t->run_file);
+	/* filesys_lock해제*/
+	filesys_unlock(file_name);
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr

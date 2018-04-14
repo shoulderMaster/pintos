@@ -33,11 +33,23 @@ int process_add_file(struct file *f)
 			t->fdt[t->next_fd++] = f;
 			return t->next_fd-1;	
 		}
-		return NULL;
+		return NULL; //?
 	}
-
 }
 
+struct file* process_get_file(int fd)
+{
+	struct thread *t = thread_current();
+	if(t->fdt[fd] == NULL)
+		return NULL;
+	return t->fdt[fd];
+}
+
+void process_close_file(int fd)
+{
+	struct thread *t = thread_current();
+	file_close(t->fdt[fd]);
+}
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
