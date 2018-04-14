@@ -124,7 +124,11 @@ void argument_stack(char **parse ,int count , void **esp)
 		strlcpy(*esp, parse[i], strlen(parse[i])+1);
 	}
   
+<<<<<<< HEAD
+    // bit mask
+=======
   // bit mask
+>>>>>>> 1ecea71978c2df31227b02b1281404a1f24df5b4
 	// 0x3 -> 0011 얘랑 esp랑 AND연산한 값만큼 패딩해주면
 	// esp주소가 32bit 단위로 addressing가능해져서 memory I/O효율이 유리해짐.  
     align_size = (((int)*esp)&0x00000003);

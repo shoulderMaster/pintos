@@ -18,42 +18,8 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
-#define MAX_FDT 64
-
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-
-int process_add_file(struct file *f)
-{
-	struct thread *t = thread_current();
-	int i;
-
-	for(i=0; i<MAX_FDT; i++) {	
-		if(t->fdt[(t->next_fd) % MAX_FDT] == NULL) {
-			t->fdt[t->next_fd++] = f;
-			return t->next_fd-1;	
-		}
-		return NULL; //?
-	}
-}
-
-struct file* process_get_file(int fd)
-{
-	struct thread *t = thread_current();
-	if(t->fdt[fd] == NULL)
-		return NULL;
-	return t->fdt[fd];
-}
-
-void process_close_file(int fd)
-{
-	/* fd에 해당하는파일을 file_close()를 호출하여 inode reference count를 1감소*/
-	struct file *f = process_get_file(fd);
-	file_close(f);
-	/* 파일디스크립터테이블 해당엔트리를 NULL값으로 초기화*/
-	f = NULL;
-	thread_current()->next_fd = fd;
-}
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -82,36 +48,6 @@ process_execute (const char *file_name)
   return tid;
 }
 
-// 자식프로세스 디스크립터의 주솟값 리턴하는 함수
-struct thread *get_child_process(int pid)
-
-{
-  struct thread *cur = thread_current();
-	struct thread *tmp_t;
-  struct list_elem *elem;
-  
-  //'자식 프로세스 리스트'의 head.next부터 tail.prev 까지 돌면서 pid(tid)를 검색함. 
-  for (elem = cur->child_list.head.next; elem != cur->child_list.tail.prev; elem = elem->next)
-  {
-		//list_entry() : list_elem을 인자로 elem이포함된 struct의 포인터를반환한다.
-    tmp_t = list_entry (elem, struct thread, child_elem);
-    if (pid ==  tmp_t->tid)
-      {     
-        // 해당하는 pid를 찾으면 해당자식 프로세스의 PCB의 주솟값 리턴.
-        return tmp_t;
-      }
-  }
-  return NULL;
-}
-
-// 자식 프로세스 디스크립터를 삭제하는 함수
-void remove_child_process(struct thread *cp)
-{
-  //list_remove (&cp->parent->child_list, &cp->child_elem);
-	list_remove (&cp->child_elem);
-	palloc_free_page(cp);
-}
-
 void argument_stack(char **parse ,int count , void **esp)
 { 
 	int i, align_size;
@@ -124,7 +60,7 @@ void argument_stack(char **parse ,int count , void **esp)
 		strlcpy(*esp, parse[i], strlen(parse[i])+1);
 	}
   
-  // bit mask
+    // bit mask
 	// 0x3 -> 0011 얘랑 esp랑 AND연산한 값만큼 패딩해주면
 	// esp주소가 32bit 단위로 addressing가능해져서 memory I/O효율이 유리해짐.  
     align_size = (((int)*esp)&0x00000003);
@@ -143,7 +79,6 @@ void argument_stack(char **parse ,int count , void **esp)
 		*(char **)*esp = arg_ptr[i];
 	// *(char **)*esp = parse[i]; 로 쓰면 안되는 이유는
 	// (포인터 배열 하나 더만들어지는이유는)
-	// esp는 유저 모드 스텍인데, (arg_ptr에는 esp주소 담아놓음) 
 	// parse는 커널안에서 만들어진 동적배열이기때문에,
 	// echo프로그램이 주소 접근 불가(커널영역)
 	// 그래서 스택의 주소를 복사해놈	
@@ -202,12 +137,6 @@ start_process (void *file_name_)
   //디스크에서 echo에 해당하는 실행파일을 찾아서 메모리에 적재를하고, 
   //그 실행파일의 메인함수로 점프를 해주는 것임. 
 	success = load(file_name, &if_.eip, &if_.esp);
-	thread_current()->loaded = success;
-
-	// 대기리스트에 스레드가 존재하면 리스트 맨 처음에 위치한 스레드를
-	// THREAD_READY 상태로 변경후 schedule()호출
-	// parent : BLOKED -> READY 
-	sema_up(&thread_current()->load_sema);
 
 	token_count++;
 	while(strtok_r(NULL, " ", &save_ptr))
@@ -218,26 +147,21 @@ start_process (void *file_name_)
 	parse = ((char**)malloc((sizeof(char*))*token_count));
 	strlcpy (file_name, file_name_, PGSIZE);
 
-	for(token = strtok_r(file_name, " ", &save_ptr), i = 0; token != NULL; token 		= strtok_r(NULL, " ", &save_ptr), i++)
+	for(token = strtok_r(file_name, " ", &save_ptr), i = 0; token != NULL; token = strtok_r(NULL, " ", &save_ptr), i++)
 	{
 		parse[i] = token;
 	}
-	
-	//hex_dump((uintptr_t)if_.esp, if_.esp, (size_t)(PHYS_BASE-if_.esp), true);
+
+	//void argument_stack(char **parse ,int count , void **esp)
+  argument_stack(parse, token_count, &if_.esp);
+	hex_dump((uintptr_t)if_.esp, if_.esp, (size_t)(PHYS_BASE-if_.esp), true);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) {
-		thread_current()->exit_status = -1;
+  if (!success) 
     thread_exit ();
-	} else {
-    thread_current()->exit_status = 0;
-    thread_current()->exited = false;
-	
-		argument_stack(parse, token_count, &if_.esp);	
-	}
 
-  /* Start the user process by simulating a return from an	
+  /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
      arguments on the stack in the form of a `struct intr_frame',
@@ -257,27 +181,9 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_pid) 
+process_wait (tid_t child_tid UNUSED) 
 {
-	struct thread *child = NULL;
-	int status = 0;
-
-	/* 자식프로세스의 프로세스 디스크립터 검색
-		 예외처리 발생시-1 리턴 */
-	if(!child = get_child_process(child_pid))
-		return -1;
-
-	/* 자식프로세스가 종료될때까지 부모프로세스대기(세마포어이용) */
-	if (!child->exited)
-		sema_down(&child->exit_sema);
-
-	/* 자식프로세스디스크립터삭제*/
-	status = child->exit_status;
-	remove_child_process(child);
-
-	/* 자식프로세스의 exit status 리턴*/
-	return status;
-
+  return -1;
 }
 
 /* Free the current process's resources. */
@@ -286,23 +192,8 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-	
-	/* 실행중인 파일close*/
-	file_allow_write(cur->run_file);
 
-	/* 프로세스에 열린 모든파일을 process_close_file(int fd)함수를 호출하여 
-	inode referece 값 1감소
-	process_close_file(int fd) : 파일디스크립터에 해당하는 파일을 닫고 해당 엔트리초기화
-	파일디스크립터 테이블의 최대값을 이용해 파일디스크립터의 최소값인2가될때까지 파일을닫음*/
-	int i;	
-	for (i =2; < i<MAX_FDT; i++) {
-		process_close_file(i);
-	}
-
-	/* 파일디스크립터테이블메모리해제*/
-  free(cur->fdt);
-
-	/* Destroy the current process's page directory and switch back
+  /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
   if (pd != NULL) 
@@ -409,8 +300,6 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    Stores the executable's entry point into *EIP
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
-
-
 bool
 load (const char *file_name, void (**eip) (void), void **esp) 
 {
@@ -427,9 +316,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-	/* filesys_lock획득*/
-	filesys_lock(file_name);
-
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
@@ -437,13 +323,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
-
-	/* thread 구조체의run_file을 현재실행할파일로초기화*/
-	t->run_file = file;
-	/* file_deny_write()를이용하여파일에대한write를거부*/
-	file_deny_write(t->run_file);
-	/* filesys_lock해제*/
-	filesys_unlock(file_name);
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
