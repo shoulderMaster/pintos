@@ -218,6 +218,13 @@ thread_create (const char *name, int priority,
   sema_init(&t->load_sema, 0);
   sema_init(&t->exit_sema, 0);
 
+  /* file 관련 구조체들 초기화 함
+     FDT는 반드시 0으로 초기화 해야하고 커널 풀에 할당해야함 */
+  t->FDT = palloc_get_page (PAL_ZERO);
+  /* 0과 1은 이미 STDIN과 STDOUT이 사용중이므로 
+     2번째 엔트리부터 파일 디스크립터를 할당 받을 수 있도록 2로 초기화 함 */
+  t->next_fd = 2;
+
   //커널에서 관리하는 모든 프로세스 리스트 구조체에 새로 생성된 PCB를 삽입함.
   list_push_back(&thread_current()->child_list, &t->child_elem);
   

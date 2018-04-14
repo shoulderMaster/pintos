@@ -17,6 +17,10 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "filesys/file.h"
+
+// 한 프로세스에 있는 FDT의 entry 최대 개수
+#define FILE_MAX 64
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -25,6 +29,51 @@ char** _get_argv(char* file_name);
 void argument_stack(char **parse, int count, void **esp);
 struct thread *get_child_process (int pid);
 void remove_child_process (struct thread *cp); 
+void process_close_file (int fd);
+struct file * process_get_file (int fd);
+int process_add_file (struct file *f);
+
+/* filesys_open() 따위에 열려서 넘겨진 파일 객체 포인터를 인자로 받아서
+   해당 파일 객체를 해당 프로세스의 FDT에 추가해주는 함수
+   파일 디스크립터 번호를 리턴함 */
+int process_add_file (struct file *f) {
+  struct thread *cur = thread_current ();
+  
+  // 파일 객체가 저장될 FDT entry번호를 저장함.
+  int current_fd = cur->next_fd;
+  
+  // next_fd 번째 자리 FDT entry에 해당 파일 객체 포인터를 저장함.
+  cur->FDT[cur->next_fd] = f;
+  
+  /* 다음번에 파일 객체를 받을 descriptor number를 정해야하는데
+     이번에 할당한 숫자 다음 숫자부터 검사해서 NULL 값이 들어있는 entry번호를 찾아 놓음
+     null 값이 들어 있다는 것은 파일 객체 포인터가 들어있지 않다는 것을 의미하므로
+     다음번 파일 객체를 받을 때 next_fd번째에 바로 저장할 수 있도록 함.*/
+  do {
+    ASSERT(++cur->next_fd < FILE_MAX); // 혹시 파일 디스크립터 최대 개수 64개가 모자르진 않는지 디버그용으로 assertion 넣음
+  } while (cur->FDT[cur->next_fd] != NULL);
+  
+  // 리턴 값으로 해당 파일을 저장한 FD number를 리턴함
+  return current_fd;
+}
+
+/* 파일 디스크립터 숫자를 넘겨주면 그에 해당하는 파일 객체 포인터를 리턴해줌 */
+struct file * process_get_file (int fd) {
+  /* 해당 엔트리에 파일이 있으면 파일 객체 포인터가 리턴되고,
+     파일 객체가 없는 경우에는 해당 엔트리에 null값이 저장되어있으므로 null이 리턴됨 */
+  return thread_current ()->FDT[fd];
+}
+
+/* 파일을 닫기 위해 파일 디스크립터를 해제함 */
+void process_close_file (int fd) {
+  struct file *file = process_get_file (fd);
+  /* 닫고자 하는 파일의 inode reference count를 1내림
+     inode는 근데 뭐임? */
+  file_close (file);
+  /* 해당 FDT의 엔트리를 null 값으로 바꿈 */
+  thread_current ()->FDT[fd] = NULL;
+
+}
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -312,7 +361,22 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+  int i;
+  
 
+  /* FDT에 있는 모든 file 객체들의 inode 의 reference count를 1씩 뺀다
+     process_close_file 내부적으로 null값에 대해서 file_close()에 의해 알아서 예외 처리됨.
+     고로 파일 디스크립터가 할당 안된 FDT entry에 대해서도 그냥 인자를 넘겨서 실행해도 문제가 없음
+     파일객체 포인터가 들어있지 않다면 NULL이 들어있기 때문
+     STDIN, STDOUT이 있는 0번째, 1번째 FDT entry에는 따로 해제를 하지 않음 */
+  for (i = 2; i < FILE_MAX; i++) {
+    process_close_file (cur->FDT[i]);
+  }
+  /* FDT는 PCB와 같은 페이지에 있는 것이 아닌 따로 할당을 해줬었음.
+     고로 따로 페이지 해제를 해줘야함 */
+  palloc_free_page(cur->FDT);
+  
+  
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;

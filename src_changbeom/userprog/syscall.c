@@ -9,6 +9,10 @@
 #define USER_START      0x08048000
 #define KERNEL_START    0xc0000000
 
+#define STDIN   0
+#define STDOUT  1
+
+
 typedef int pid_t;
 static void syscall_handler (struct intr_frame *);
 void check_address (void *addr);
@@ -19,11 +23,28 @@ bool create (const char *file, unsigned initial_size);
 bool remove (const char *file);
 pid_t exec (const *cmd_line);
 int wait (tid_t tid);
+int open (const char *file);
+int filesize (int fd); 
+int read (int fd, void *buffer, unsigned size);
+int write (int fd, void *buffer, unsigned size);
+void seek (int fd, unsigned position);
+void close (int fd);
+unsigned tell (int fd);
+
+/* read() write() 시스템콜 호출 시 사용될 lock
+   disk 같은 공유자원에 접근 할 때는
+   critical section, mutex등으로 
+   공유자원에 대한 동시 접근 보호가 필요함 */
+static struct lock rw_lock;
+
 
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  
+  /* 핀토스 부팅할 때 init()에 의해 rw_lock이 초기화 될 수 있도록 함 */
+  lock_init (&rw_lock);
 }
 
 static void
@@ -91,10 +112,199 @@ syscall_handler (struct intr_frame *f UNUSED)
         f->eax = exec ((const char*)arg[0]);
         break;
 
+     case SYS_OPEN :
+        get_argument (esp, arg, 1);
+        check_address ((void*)arg[0]);
+        f->eax = open ((const char*)arg[0]);
+        break;
+
+     case SYS_FILESIZE :
+        get_argument (esp, arg, 1);
+        f->eax = filesize ((int)arg[0]);
+        break;
+
+     case SYS_READ :
+        get_argument (esp, arg, 3);
+        check_address ((void*)arg[1]);
+        f->eax = read ((int)arg[0], (void*)arg[1], (unsigned)arg[2]);
+        break;
+
+     case SYS_WRITE :
+        get_argument (esp, arg, 3);
+        check_address ((void*)arg[1]);
+        f->eax = write ((int)arg[0], (void*)arg[1], (unsigned)arg[2]);
+        break;
+
+     case SYS_SEEK :
+        get_argument (esp, arg, 2);
+        seek ((int)arg[0], (unsigned)arg[1]);
+        break;
+
+     case SYS_TELL :
+        get_argument (esp, arg, 1);
+        f->eax = tell ((int)arg[0]);
+        break;
+
+     case SYS_CLOSE :
+        get_argument (esp, arg, 1);
+        close ((int)arg[0]);
+        break;
+
   }
 
 }
 
+/* 파일 디스크립터 사용이 끝나면 
+   이 시스템콜을 호출하여 해당 fd의 file object를 해제할 수 있음 */
+void close (int fd) {
+  return process_close_file (fd);  
+}
+
+/* 파일 객체의 읽고 쓸 position이 어딘지 알려주는 시스템 콜 */
+unsigned tell (int fd) {
+  struct file *file_object = process_get_file (fd);
+  
+  if (file_object == NULL) {
+    /* 유효하지 않은 파일 디스크립터거나 STDIN이거나 STDOUT인 경우 return -1
+       만약 null값을 file_tell()에 넘겨서 호출할 경우 assertion발생*/
+    return -1;
+  } else {
+    /* file_tell() 내부적으로 file_object->pos 값을 읽어와줌 */
+    return file_tell (file_object);
+  }
+
+}
+
+/* file object에서 pos멤버를 바꿔 
+   다음에 read하거나 write할때 시작 위치를 바꿔주는 시스템콜  함수 */
+void seek (int fd, unsigned position) {
+  struct file *file_object = process_get_file (fd);
+  
+ if (file_object == NULL || position >= file_length (file_object)) {
+   
+    /* fd가 STDIN or STDOUT 이거나 파일 객체가 없거나
+       position이 파일 크기를 벗어나면 그냥 리턴함 */ 
+    return;
+  } else {
+
+    /* 내부적으로 파일 객체의 pos멤버를 position값을 바꾸도록 작동함 */
+    file_seek (file_object, position);
+    return position; 
+    // file_seek() 함수가 따로 바꾼 위치 값을 리턴하지 않아서 position 인자값 그대로 사용함
+  }
+}
+
+
+/* fd가 나타내는 파일에 내용을 입력할 수 있게 해주는 시스템콜 함수 */
+int write (int fd, void *buffer, unsigned size) {
+  struct file *file_object = process_get_file (fd);
+  int bytes_write;
+  
+  lock_acquire (&rw_lock);
+  //----------- start critical section ---------------
+  
+  if (fd == STDOUT) {
+   
+    /* 콘솔 화면에 buffer에 있는 내용을 size만큼 출력해줌
+       근데 따로 출력해 준 size를 리턴해주지 않아서 size를 그대로 return 값으로 사용함*/
+    putbuf(buffer, size);
+    bytes_write = size;
+  } else {
+
+    /* file_write()가 해당 파일에서 buffer에다가 size만큼 읽어와서 읽은 byte수만큼 리턴해줌
+       그럼 파일을 어디서 부터 읽느냐 그건 file object에 pos라는 읽을 위치를 저장해놓은 멤버가 있어서
+       내부적으로 이 pos부터 시작해서 size만큼 읽음 */
+    bytes_write = file_write(file_object, buffer, size);
+  }
+  
+  //------------ finish critical section -------------
+  lock_release (&rw_lock);
+
+  return bytes_write;
+}
+
+/* fd가 나타내는 파일의 내용을 읽어주는 시스템콜 함수 */
+int read (int fd, void *buffer, unsigned size) {
+  struct file *file_object = process_get_file (fd);
+  int bytes_read = 0; 
+  int i;
+
+  /* 파일을 읽는 동안 다른 프로세스가 같은 파일에 접근하지 못하도록 lock을 걸음 */
+  lock_acquire (&rw_lock);
+  //---------- start critical section -----------
+
+  if (fd == STDIN) {
+    for (i = 0; i < size; i++) {
+     
+      /* input_getc()가 사용자 입력이 없으면 
+         생길때 까지 기다려서 받는 함수이기 때문에
+         따로 EOF 이런 것을 고려할 필요가 없음*/
+      ((char*)buffer)[i] = input_getc ();
+    }  
+
+    // 항상 size와 같은 값이겠지만 buffer에 저장된 크기라는 종속적으로 결정될 값을 의도함.
+    bytes_read = i + 1; 
+  
+  } else {
+
+    /* 해당 파일에서 size크기 만큼 읽고 (혹은 EOF 읽는 지점까지) 
+       buffer주소에 읽어온 내용을 저장하며
+       읽은 byte 수를 반환함. */
+    bytes_read = file_read (file_object, buffer, size); 
+  }
+
+  //------------- finish critical section ----------------
+  lock_release (&rw_lock);
+
+  // 읽어온 byte 수를 리턴함
+  return bytes_read;
+
+}
+
+/* 파일 디스크립터에 해당하는 파일의 size를 리턴해줌 */
+int filesize (int fd) {
+  struct file *file_object = process_get_file (fd);
+  
+  /* file_length() 는 인자로 받아온 파일 객체 포인터가 null일 경우 assertion을 일으킴
+     받아온 fd에 해당하는 파일 객체가 null일 경우 -1을 리턴할 수 있게 예외처리를 함*/
+  if (file_object == NULL) {
+    
+    return -1;
+  } else { 
+
+    /* file_length() 내부적으로 
+       file object->inode->inode_disk.length 를 
+       참조하여 파일 사이즈를 가져옴 */
+    return file_length (file_object);
+  }
+  
+}
+
+
+/* 파일 이름을 받으면 해당 파일 객체를 열어서 
+   그 파일 객체를 usermode에서 간접적으로 지정할 수 있게 
+   FDT에 추가하여 해당 FD를 리턴해주는 시스템 콜 함수
+   
+   (유저모드에서는 어차피 커널의 파일 객체에 직접 접근 못하니까
+   파일을 fd를 통해 간접지정하면 커널에서 알아서 해석해서
+   해당 객체를 참조해준다는 의미)  */
+int open (const char *file) {
+  
+  /* filesys_open() 으로 해당 파일이름과 경로에 해당하는 파일을 열어서 파일객체를 반환함
+     이 과정에서 해당 파일이 없거나 권한에 문제가 있어 열지 못한다면 null을 반환함 */
+  struct file *file_object = filesys_open (file);
+
+  
+  /* 해당 파일이 문제가 있어 null을 반환 받았다면 -1리턴 */
+  if (file_object == NULL) {
+    return -1;
+  } else {
+    /* 정상적으로 파일 객체를 반환 받았으면
+       해당 FDT에 파일 객체 포인터를 추가하여 
+       해당 FD number를 리턴함*/
+    return process_add_file(file_object);
+  }
+}
 
 /* user mode에서도 process_wait를 사용할 수 있도록 시스템 콜에 추가함 */
 int wait(tid_t tid) 

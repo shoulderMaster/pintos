@@ -5,6 +5,8 @@
 #include <list.h>
 #include <stdint.h>
 #include "synch.h"
+
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -23,6 +25,7 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
 
 /* A kernel thread or user process.
 
@@ -116,6 +119,15 @@ struct thread
 
     /* exit 호출 시 종료 status */
     int exit_status;
+
+    /* file descriptor table
+       thread_create() 에서 페이지를 할당받고 초기화 한다.*/
+    struct file **FDT;
+
+    /* 새로 파일 디스크립터를 할당할 때 이걸 인덱스로 사용함 */
+    int next_fd; 
+
+
 
 
 #ifdef USERPROG
