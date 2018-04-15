@@ -117,6 +117,9 @@ start_process (void *file_name_)
   int argc, i;
   struct intr_frame if_;
   bool success;
+ 
+  // 인자의 개수를 셈.
+  argc = _get_argc(file_name);
   
   /* file_name에 프로그램 이름과 인자들을 각각 구분하여 잘라
      문자열 포인터 배열을 반환함.
@@ -124,10 +127,6 @@ start_process (void *file_name_)
      사용을 마치고 나면 반드시 리턴 값에 대해 free를 해줘야함.  */
   argv = _get_argv(file_name);
   
-  // 인자의 개수를 셈.
-  argc = _get_argc(file_name);
-  
-
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -289,8 +288,8 @@ struct thread *get_child_process (int pid)
   struct thread *cur = thread_current(), *tmp_t;
   struct list_elem *elem;
   
-  // for문을 자식 프로세스 리스트 head.next부터 tail.prev 까지 돌면서 pid(tid)를 검색함. 
-  for (elem = cur->child_list.head.next; elem != cur->child_list.tail.prev; elem = elem->next)
+  // for문을 자식 프로세스 리스트 head.next부터 tail 까지 돌면서 pid(tid)를 검색함. 
+  for (elem = cur->child_list.head.next; elem != &cur->child_list.tail; elem = elem->next)
   {
     tmp_t = list_entry (elem, struct thread, child_elem);
     if (pid ==  tmp_t->tid)
@@ -338,14 +337,12 @@ process_wait (tid_t child_pid)
     return -1;
   }
 
-
   /*  wait하고자 하는 자식 프로세스가 아직 종료가 안되었다면 
       프로세스가 종료되고 sema_up될 때까지 block상태로 기다린다.*/
   if (!child->exited)
   {
     sema_down(&child->exit_sema);
   }
-
   
   /*  자식 프로세스 종료 코드를 받아오고 
       자식 프로세스의 PCB를 해제하는 작업을 함. */
@@ -370,7 +367,7 @@ process_exit (void)
      파일객체 포인터가 들어있지 않다면 NULL이 들어있기 때문
      STDIN, STDOUT이 있는 0번째, 1번째 FDT entry에는 따로 해제를 하지 않음 */
   for (i = 2; i < FILE_MAX; i++) {
-    process_close_file (cur->FDT[i]);
+    process_close_file (i);
   }
   /* FDT는 PCB와 같은 페이지에 있는 것이 아닌 따로 할당을 해줬었음.
      고로 따로 페이지 해제를 해줘야함 */
