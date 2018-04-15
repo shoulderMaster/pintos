@@ -493,6 +493,9 @@ is_thread (struct thread *t)
 
 /* Does basic initialization of T as a blocked thread named
    NAME. */
+/* 여기가 커널 main thread 생성할 때도 호출되네.. 
+   그냥 여기에 thread 초기화 하는 내용은 다 넣어도 될거 같은데
+   복잡하게 process_create에다가 나눠 넣지 말고.. 특히 세마포어 초기화*/
 static void
 init_thread (struct thread *t, const char *name, int priority)
 {
@@ -510,6 +513,9 @@ init_thread (struct thread *t, const char *name, int priority)
   
   // 자식 리스트 구조체 멤버를 초기화 함.
   list_init(&t->child_list);
+  /* process_exit () 에 의해 혹시 진짜 스레기 값이 file_close()되지 않을까 하여
+     기본 초기 값을 NULL로 초기화 해줌. NULL값은 알아서 예외처리 됨. */
+  t->run_file = NULL;
 
 
 }

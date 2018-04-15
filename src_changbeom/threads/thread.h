@@ -126,9 +126,9 @@ struct thread
 
     /* 새로 파일 디스크립터를 할당할 때 이걸 인덱스로 사용함 */
     int next_fd; 
-
-
-
+    
+    /* 실행 중인 ELF파일 객체를 PCB에 유지하기 위한 멤버 변수*/
+    struct file *run_file;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

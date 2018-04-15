@@ -8,6 +8,7 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
+#include "userprog/syscall.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -51,7 +52,7 @@ int process_add_file (struct file *f) {
      null 값이 들어 있다는 것은 파일 객체 포인터가 들어있지 않다는 것을 의미하므로
      다음번 파일 객체를 받을 때 next_fd번째에 바로 저장할 수 있도록 함.*/
   do {
-    ASSERT(++cur->next_fd < FILE_MAX); // 혹시 파일 디스크립터 최대 개수 64개가 모자르진 않는지 디버그용으로 assertion 넣음
+    ASSERT(++cur->next_fd < FILE_MAX); // 혹시 파일 디스크립터 최대 개수 64개가 모자르진 않는지 디버그용으로 assertion 넣음 -> 192개로 변경
   } while (cur->FDT[cur->next_fd] != NULL);
   
   // 리턴 값으로 해당 파일을 저장한 FD number를 리턴함
@@ -149,9 +150,11 @@ start_process (void *file_name_)
 
     /* 스레드가 비정상 종료인 것을 알리기 위해 
        그냥 thread_exit()로 종료하는 것이 아닌,
-       PCB->exit_status에 종료코드로 -1를 넣어 비정상 종료임을 표시함. */
-    thread_current()->exit_status = -1;
-    thread_exit ();
+       PCB->exit_status에 종료코드로 -1를 넣어 비정상 종료임을 표시함. 
+       근데 그냥 exit(-1) 하면 되는거 아님? */
+    //thread_current()->exit_status = -1;
+    //thread_exit ();
+    exit (-1);
   } else {
     
     /* 프로세스가 성공적으로 load되었으면
@@ -383,7 +386,11 @@ process_exit (void)
         고로 따로 페이지 해제를 해줘야함 */
      palloc_free_page(cur->FDT);
   }
-  
+  /* load() 함수에 의해 열린 ELF파일 객체를 프로세스 종료 때 해제함.
+     이 파일을 해제함으로 다른 프로세스가 ELF파일에 write할 수 있게 허용해줌.
+     물론 이 ELF로 아직 실행 중인 다른 프로세스가 있다면 그 프로세스들이 모두 종료될 때까지 기다려야함 */
+  file_close (cur->run_file);
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -506,7 +513,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
-
+  
+  /* 파일 read, write시 lock을 사용해 동시 접근을 막아야하므로 
+     syscall.c 에서 전역변수로 만들었던 rw_lock을 사용하여 lock을 걺 */
+  lock_acquire (&rw_lock);
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
@@ -514,6 +524,22 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
+
+  /* ELF 파일을 열어서 프로세스에 올려 실행하는동안 다른 프로세스가 해당 ELF파일에 접근하면 
+     원래 실행하고자 하는 파일과 내용이 달라져 무결성이 깨질 수 있으므로
+     ELF 파일을 실행파일로서 작동시키는 중에는 다른 프로세스로부터 접근되어 write를 하지 못하도록
+     해당 파일을 보호해야함. file_deny_write()으로 해당 파일 객체를 넘기면 해당 파일 객체의 
+     deny_write 멤버가 true로 체크되어 해당 파일이 executable파일로서 실행 중인것을 구분하여주고
+     해당 파일 객체의 inode 객체의 deny_write_count 멤버를 1늘려 
+     해당 파일을 실행중인 프로세스의 개수를 표시하여준다. 
+     해당 파일을 실행중인 프로세스가 나중에 종료되면 해당 실행 중인 thread구조체를 참조하여 해당 파일 객체를
+     file_close() 를 호출하여 닫아주는데, 이 과정에서 함수 내부적으로 
+     file_allow_write() 를 호출하게 되어 있다. 그러면 해당 파일 객체의 deny_write 멤버를 false로 바꿔
+     해당 파일이 쓰기가 가능하단 것을 표시하고 (근데 어차피 이 객체는 해제될 것임)
+     커널에 파일 별로 유일하게 존재하는 inode구조체에 deny_write_count를 1 줄여서
+     해당 파일을 실행파일로서 실행중인 프로세스가 1개 줄었다는 것을 표시한다. */
+  file_deny_write (file);
+  t->run_file = file;
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -598,7 +624,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  /* ELF 파일에 대한 해제는 process_exit()에서 수행하므로 기존에 있던 file_close()는 없애버림.*/
+  //file_close (file);
+  /* elf file load 전에 걸었던 lock 반 */  
+  lock_release (&rw_lock);
   return success;
 }
 
@@ -652,7 +681,7 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
-   UPAGE.  In total, READ_BYTES + ZERO_BYTES bytes of virtual
+   UPAGE.  In total, READ_BYTES + ZERO_BYTES: bytes of virtual
    memory are initialized, as follows:
 
         - READ_BYTES bytes at UPAGE must be read from FILE

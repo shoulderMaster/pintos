@@ -36,7 +36,7 @@ unsigned tell (int fd);
    disk 같은 공유자원에 접근 할 때는
    critical section, mutex등으로 
    공유자원에 대한 동시 접근 보호가 필요함 */
-static struct lock rw_lock;
+struct lock rw_lock;
 
 
 void

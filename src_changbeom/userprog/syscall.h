@@ -2,5 +2,6 @@
 #define USERPROG_SYSCALL_H
 
 void syscall_init (void);
+struct lock rw_lock;
 
 #endif /* userprog/syscall.h */
