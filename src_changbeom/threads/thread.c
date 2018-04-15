@@ -227,8 +227,6 @@ thread_create (const char *name, int priority,
 
   //커널에서 관리하는 모든 프로세스 리스트 구조체에 새로 생성된 PCB를 삽입함.
   list_push_back(&thread_current()->child_list, &t->child_elem);
-  
-  
   /* Add to run queue. */
   thread_unblock (t);
 

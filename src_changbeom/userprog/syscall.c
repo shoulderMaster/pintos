@@ -3,6 +3,7 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "lib/string.h"
 
 /* 보다 직관적인 check_address() 를 작성하기 위해 
    각 메모리 영역 시작 주소 값을 USER_START, KERNEL_START로 정의함. */
@@ -381,14 +382,24 @@ bool remove (const char *file)
 pid_t exec (const *cmd_line)
 {
   struct thread *child = NULL;
+  char *file_name = NULL;
   pid_t child_pid = 0;
   
+  /* 유저 메모리 공간에 저장된 cmd_line을 직접 조작할 수 없으니 
+     커널 메모리 공간에다가 복사함.*/
+  file_name = palloc_get_page (0);
+  if (file_name == NULL) {
+    return -1;
+  }
+  
+  strlcpy (file_name, cmd_line, strlen(cmd_line)+1);
+    
   // cmd_line의 프로그램과 인자들을 실행할 자식 프로세스를 생성함.
-  child_pid = process_execute (cmd_line);
+  child_pid = process_execute (file_name);
   child = get_child_process (child_pid);
   
   sema_down (&child->load_sema); // 자식 프로세스가 완전히 load 될 때까지 기다린다.
-  
+  palloc_free_page (file_name);
   // 자식 프로세스가 비정상 종료된 경우 return -1를 함
   if (child->exit_status == -1) 
   {

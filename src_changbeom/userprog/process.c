@@ -102,8 +102,10 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (_trimed_file_name, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+  
+  if (tid == TID_ERROR) {
+    palloc_free_page (fn_copy);
+  }
   return tid;
 }
 
@@ -169,7 +171,9 @@ start_process (void *file_name_)
   }
 
   // get_argv() 의 리턴값으로 받아온 동적할당 메모리 주소를 해제함.
-  // file_name_에 대한 해제는 process_execute()에서 수행함
+  /* file_name_에 대한 해제는 process_execute()에서 수행
+     하는 줄 알았는데 process_execute()가 비정상 종료 될 때만 해제 해주는 거였음*/
+  palloc_free_page (file_name_);
   free (argv);
 
 
