@@ -114,7 +114,7 @@ start_process (void *file_name_)
 {
   char *file_name = file_name_;
   char **argv;
-  int argc, i;
+  int argc;
   struct intr_frame if_;
   bool success;
  
@@ -250,8 +250,9 @@ void argument_stack(char **parse, int count, void **esp)
   *esp -= align_size;
   memset(*esp, 0x00, align_size);
 
-  // argv[argc] 에 0x00000000을 넣어주어서 argv의 마지막임을 표시.
-  // 사실 근데 argv에 접근할 때는 ebp기준으로 argc만큼 접근하기 때문에 이런 표시 없이도 동작 가능.
+  /* argv[argc] 에 0x00000000을 넣어주어서 argv의 마지막임을 표시.
+     사실 근데 argv에 접근할 때는 ebp기준으로 argc만큼 접근하기 때문에 이런 표시 없이도 동작 가능
+     하다고 생각 했었는데 arg 관련 테스트 케이스를 통과하려면 넣어줘야함....  */
   *esp -= sizeof(char*);
   *(char**)*esp = 0;
   
@@ -365,14 +366,18 @@ process_exit (void)
      process_close_file 내부적으로 null값에 대해서 file_close()에 의해 알아서 예외 처리됨.
      고로 파일 디스크립터가 할당 안된 FDT entry에 대해서도 그냥 인자를 넘겨서 실행해도 문제가 없음
      파일객체 포인터가 들어있지 않다면 NULL이 들어있기 때문
-     STDIN, STDOUT이 있는 0번째, 1번째 FDT entry에는 따로 해제를 하지 않음 */
-  for (i = 2; i < FILE_MAX; i++) {
-    process_close_file (i);
-  }
-  /* FDT는 PCB와 같은 페이지에 있는 것이 아닌 따로 할당을 해줬었음.
-     고로 따로 페이지 해제를 해줘야함 */
-  palloc_free_page(cur->FDT);
+     STDIN, STDOUT이 있는 0번째, 1번째 FDT entry에는 따로 해제를 하지 않음 
+     그리고 kernel의 main 프로세스와 idle process는 프로세스 초기화 할 때 FDT를 초기화 하지 않으므로
+     double free가 발생하지 않게 이 루틴은 작동하지 않게 함.*/
+  if (!(cur->tid == 1 || cur->tid == 2)) {
   
+    for (i = 2; i < FILE_MAX; i++) {
+      process_close_file (i);
+    }
+     /* FDT는 PCB와 같은 페이지에 있는 것이 아닌 따로 할당을 해줬었음.
+        고로 따로 페이지 해제를 해줘야함 */
+     palloc_free_page(cur->FDT);
+  }
   
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
