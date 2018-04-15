@@ -200,9 +200,7 @@ int write (int fd, void *buffer, unsigned size) {
   struct file *file_object = process_get_file (fd);
   int bytes_write;
   
-  lock_acquire (&rw_lock);
-  //----------- start critical section ---------------
-  
+ 
   if (fd == STDOUT) {
    
     /* 콘솔 화면에 buffer에 있는 내용을 size만큼 출력해줌
@@ -210,16 +208,20 @@ int write (int fd, void *buffer, unsigned size) {
     putbuf(buffer, size);
     bytes_write = size;
   } else {
-
+   
+    lock_acquire (&rw_lock);
+    //----------- start critical section ---------------
+  
     /* file_write()가 해당 파일에서 buffer에다가 size만큼 읽어와서 읽은 byte수만큼 리턴해줌
        그럼 파일을 어디서 부터 읽느냐 그건 file object에 pos라는 읽을 위치를 저장해놓은 멤버가 있어서
        내부적으로 이 pos부터 시작해서 size만큼 읽음 */
     bytes_write = file_write(file_object, buffer, size);
-  }
-  
-  //------------ finish critical section -------------
-  lock_release (&rw_lock);
+    
+    //------------ finish critical section -------------
+    lock_release (&rw_lock);
 
+ }
+  
   return bytes_write;
 }
 
@@ -228,10 +230,6 @@ int read (int fd, void *buffer, unsigned size) {
   struct file *file_object = process_get_file (fd);
   int bytes_read = 0; 
   int i;
-
-  /* 파일을 읽는 동안 다른 프로세스가 같은 파일에 접근하지 못하도록 lock을 걸음 */
-  lock_acquire (&rw_lock);
-  //---------- start critical section -----------
 
   if (fd == STDIN) {
     for (i = 0; i < size; i++) {
@@ -246,15 +244,18 @@ int read (int fd, void *buffer, unsigned size) {
     bytes_read = i + 1; 
   
   } else {
+  /* 파일을 읽는 동안 다른 프로세스가 같은 파일에 접근하지 못하도록 lock을 걸음 */
+    lock_acquire (&rw_lock);
+    //---------- start critical section -----------
 
     /* 해당 파일에서 size크기 만큼 읽고 (혹은 EOF 읽는 지점까지) 
        buffer주소에 읽어온 내용을 저장하며
        읽은 byte 수를 반환함. */
     bytes_read = file_read (file_object, buffer, size); 
-  }
+    //------------- finish critical section ----------------
+    lock_release (&rw_lock);
 
-  //------------- finish critical section ----------------
-  lock_release (&rw_lock);
+ }
 
   // 읽어온 byte 수를 리턴함
   return bytes_read;
@@ -290,10 +291,15 @@ int filesize (int fd) {
    해당 객체를 참조해준다는 의미)  */
 int open (const char *file) {
   
-  /* filesys_open() 으로 해당 파일이름과 경로에 해당하는 파일을 열어서 파일객체를 반환함
-     이 과정에서 해당 파일이 없거나 권한에 문제가 있어 열지 못한다면 null을 반환함 */
-  struct file *file_object = filesys_open (file);
-
+  struct file *file_object; 
+  // open-null testcase를 통과하기 위한 예외처리
+  if (file == NULL) {
+    exit(-1);
+  } else {
+    /* filesys_open() 으로 해당 파일이름과 경로에 해당하는 파일을 열어서 파일객체를 반환함
+       이 과정에서 해당 파일이 없거나 권한에 문제가 있어 열지 못한다면 null을 반환함 */
+    file_object = filesys_open (file);
+  }
   
   /* 해당 파일이 문제가 있어 null을 반환 받았다면 -1리턴 */
   if (file_object == NULL) {
@@ -318,7 +324,7 @@ void check_address (void *addr)
 {
   if (!( (void*)USER_START <= addr && addr < (void*)KERNEL_START ))
   {
-    printf ("invailed parameter.\n");
+    //printf ("invailed parameter.\n");
     exit (-1);
   }
 }
@@ -349,14 +355,20 @@ void exit (int status)
 {
   struct thread *current_thread = thread_current ();
   current_thread->exit_status = status;
-  printf ("process : %s exit(%d)\n", current_thread->name, status);
+  printf ("%s: exit(%d)\n", current_thread->name, status);
   thread_exit ();
 }
 
 // 디스크에서 파일을 생성하는 시스템 콜 함수
 bool create (const char *file, unsigned initial_size)
 {
-  return filesys_create (file, initial_size);
+  // create-null testcase를 pass하기 위한 예외 처리
+  if (file == NULL) {
+    exit (-1);
+  } else {
+    return filesys_create (file, initial_size);
+  }
+
 }
 
 // 디스크에서 파일을 지우는 시스템 콜 함수
