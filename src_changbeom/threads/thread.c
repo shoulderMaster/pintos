@@ -28,6 +28,12 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+/* sleep된 프로세스 구조체들을 관리하는 리스트. alarm clock 구현시 사용 */
+static struct list sleep_list;
+
+/* sleep_list 에 저장된 프로세스 wakeup_tick 시간 중 가장 작은 것을 저장. */
+int64_t min_wakeup_tick;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
