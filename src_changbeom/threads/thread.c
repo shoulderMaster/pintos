@@ -32,7 +32,7 @@ static struct list all_list;
 static struct list sleep_list;
 
 /* sleep_list 에 저장된 프로세스 wakeup_tick 시간 중 가장 작은 것을 저장. */
-int64_t min_wakeup_tick;
+int64_t next_tick_to_awake;
 
 /* Idle thread. */
 static struct thread *idle_thread;
