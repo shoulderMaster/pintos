@@ -31,8 +31,9 @@ static struct list all_list;
 /* sleep된 프로세스 구조체들을 관리하는 리스트. alarm clock 구현시 사용 */
 static struct list sleep_list;
 
-/* sleep_list 에 저장된 프로세스 wakeup_tick 시간 중 가장 작은 것을 저장. */
-int64_t next_tick_to_awake;
+/* sleep_list 에 저장된 프로세스 wakeup_tick 시간 중 가장 작은 것을 저장.
+   초기 값으로 가장 큰 숫자인 INT64_MAX 넣어줌 */
+int64_t next_tick_to_awake = INT64_MAX;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -98,6 +99,8 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  /* sleep_list 초기화 함. */
+  list_init (&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
