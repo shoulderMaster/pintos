@@ -148,6 +148,35 @@ thread_tick (void)
     intr_yield_on_return ();
 }
 
+void thread_sleep (int64_t ticks) {
+
+}
+
+void thread_awake (int64_t ticks) {
+
+}
+
+void update_next_tick_to_awake (int64_t ticks) {
+  
+}
+
+int64_t get_next_tick_to_awake (void) {
+  
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* Prints thread statistics. */
 void
 thread_print_stats (void) 

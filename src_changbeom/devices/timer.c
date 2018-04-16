@@ -92,8 +92,10 @@ timer_sleep (int64_t ticks)
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
+  /* 기존의 busy waiting 방식의 timer_sleep 구현을 지움
   while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+    thread_yield ();  */
+  
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -172,6 +174,11 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+
+  /* 매 틱마다 sleep queue에서 깨어날 thread가 있는지 확인하여, 
+     깨우는 함수를 호출하도록 한다. */
+  thread_awake (get_next_tick_to_awake ()); 
+  
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
