@@ -130,6 +130,9 @@ struct thread
     /* 실행 중인 ELF파일 객체를 PCB에 유지하기 위한 멤버 변수*/
     struct file *run_file;
     
+    /* sleep_list를 만들기 위한 list_elem */
+    struct list_elem sleep_elem;
+
     /* alarm clock을 구현하기 위해 프로세스를 재울 시간을 저장함 */
     int64_t wakeup_tick;
 

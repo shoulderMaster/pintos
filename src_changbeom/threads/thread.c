@@ -148,33 +148,52 @@ thread_tick (void)
     intr_yield_on_return ();
 }
 
-void thread_sleep (int64_t ticks) {
 
+
+void thread_sleep (int64_t ticks) {
+  struct thread *cur = thread_current ();
+  enum intr_level old_level = intr_disable ();
+  //struct thread *prev_t = NULL, *next_t = NULL;
+  if (cur->tid != 2)  {
+
+    //cur->status = THREAD_BLOCKED;
+    cur->wakeup_tick = ticks; 
+    list_push_back (&sleep_list, &cur->sleep_elem);
+    update_next_tick_to_awake (ticks); 
+    thread_block ();
+    /*  
+    for (elem = sleep_list.head.next; elem != &sleep_list.tail; elem = elem->next) { 
+      cur_t = list_entry (elem, struct thread, elem);
+      next_t = list_entry (elem->next, struct thread, elem);
+      if (prev_t->wakeup_tick <= cur->wakeup_tick )
+     */
+  }
+  intr_set_level (old_level);
 }
 
 void thread_awake (int64_t ticks) {
-
+  struct list_elem *elem = NULL;
+  struct thread *pcb = NULL;
+  for (elem = sleep_list.head.next; elem != &sleep_list.tail; elem = elem->next) {
+    pcb = list_entry (elem, struct thread, sleep_elem);
+    if (pcb->wakeup_tick <= ticks) {
+      list_remove (elem);
+      thread_unblock (pcb);
+    } else {
+      update_next_tick_to_awake (pcb->wakeup_tick);
+    }
+  }
 }
 
 void update_next_tick_to_awake (int64_t ticks) {
-  
+  if (ticks < next_tick_to_awake ) {
+    next_tick_to_awake = ticks;
+  }
 }
 
 int64_t get_next_tick_to_awake (void) {
-  
+  return next_tick_to_awake;  
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 /* Prints thread statistics. */
