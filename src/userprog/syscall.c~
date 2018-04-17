@@ -12,6 +12,7 @@ static void syscall_handler (struct intr_frame *);
 void
 syscall_init (void) 
 {
+  lock_init(&filesys_lock);
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -20,7 +21,7 @@ int open(const char *file)
 	struct file *f = filesys_open(file); //실패할 경우 NULL을 리턴
 	int fd;
 
-	if (!f) 
+	if (!f) //case f == NULL
 		return -1;
 	fd = process_add_file(f);
 	if (!fd)
@@ -40,6 +41,8 @@ int read(int fd, void *buffer, unsigned size)
 {
 	//fd -> file pointer !  
 	struct file *f = process_get_file(fd);
+
+	lock_acquire(&filesys_lock);	
 	if(f) {
 		//파일에 내용 쓰는함수
 		return file_read(f, buffer, size);
@@ -58,11 +61,14 @@ int read(int fd, void *buffer, unsigned size)
 		}
 		return i;
 	}
+	lock_release(&filesys_lock);
 }
 
 int write(int fd, void *buffer, unsigned size)
 {
 	struct file *f = process_get_file(fd);
+
+	lock_acquire(&filesys_lock);	
 	if(f) {
 		return file_write(f, buffer,size);
 	} 
@@ -70,6 +76,7 @@ int write(int fd, void *buffer, unsigned size)
 		putbuf(buffer,size);
 		return size;	
 	}
+	lock_release(&filesys_lock);
 }
 
 void seek (int fd, unsigned position)

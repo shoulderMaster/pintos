@@ -287,8 +287,9 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 	
-	/* 실행중인 파일close*/
-	file_allow_write(cur->run_file);
+	
+	//file_allow_write(cur->run_file);
+	
 
 	/* 프로세스에 열린 모든파일을 process_close_file(int fd)함수를 호출하여 
 	inode referece 값 1감소
@@ -298,9 +299,13 @@ process_exit (void)
 	for (i =2; < i<MAX_FDT; i++) {
 		process_close_file(i);
 	}
-
 	/* 파일디스크립터테이블메모리해제*/
   free(cur->fdt);
+	
+	/* 실행중인 파일close*/
+	if(cur->run_file != NULL)	
+		file_close(cur->run_rile); //file_close에 file_allow_write()있음.
+
 
 	/* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -427,7 +432,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-	/* filesys_lock획득*/
+	/* filesys_lock획득, denying write를 제대로 해주기위한 lock.*/
 	lock_acquire(filesys_lock);
 
   /* Open executable file. */

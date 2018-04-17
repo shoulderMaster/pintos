@@ -15,6 +15,8 @@
 #include "userprog/process.h"
 #endif
 
+#define MAX_FDT 64
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -218,6 +220,14 @@ thread_create (const char *name, int priority,
 	sema_init(&t->load_sema, 0); 
 	/* 부모프로세스의 자식리스트에추가*/
 	list_push_back(&thread_current()->child_list, &t->child_elem);
+	
+	/* File Descriptor 테이블에 메모리할당*/
+	t->fdt = (struct file**)malloc(sizeof(struct file *)*MAX_FDT);
+	// t->fdt = palloc_get_page(PARL_ZERO);
+	/* fd값2로초기화(0,1은표준입력,출력)*/
+	t->next_fd = 2;
+
+	
 
 
   /* Add to run queue. */

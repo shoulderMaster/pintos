@@ -428,7 +428,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
 	/* filesys_lock획득*/
-	filesys_lock(file_name);
+	lock_acquire(filesys_lock);
 
   /* Open executable file. */
   file = filesys_open (file_name);
@@ -443,7 +443,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 	/* file_deny_write()를이용하여파일에대한write를거부*/
 	file_deny_write(t->run_file);
 	/* filesys_lock해제*/
-	filesys_unlock(file_name);
+	lock_release(filesys_lock);
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr

@@ -222,8 +222,8 @@ thread_create (const char *name, int priority,
 	list_push_back(&thread_current()->child_list, &t->child_elem);
 	
 	/* File Descriptor 테이블에 메모리할당*/
-	t->fdt = (struct file**)malloc(sizeof(struct file *)*MAX_FDT);
-	// t->fdt = palloc_get_page(0);
+	//t->fdt = (struct file**)malloc(sizeof(struct file *)*MAX_FDT);
+	t->fdt = palloc_get_page(PARL_ZERO);
 	/* fd값2로초기화(0,1은표준입력,출력)*/
 	t->next_fd = 2;
 
