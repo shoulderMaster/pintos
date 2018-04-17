@@ -386,7 +386,9 @@ pid_t exec (const *cmd_line)
   pid_t child_pid = 0;
   
   /* 유저 메모리 공간에 저장된 cmd_line을 직접 조작할 수 없으니 
-     커널 메모리 공간에다가 복사함.*/
+     커널 메모리 공간에다가 복사함. 
+     -> 커널 모드에서 유저 메모리 공간을 수정하려고 해서 생긴 문제라고 생각했는데
+     알고보니까 const 를 수정하려고 해서 발생한 문제로 예상됨.*/
   file_name = palloc_get_page (0);
   if (file_name == NULL) {
     return -1;
