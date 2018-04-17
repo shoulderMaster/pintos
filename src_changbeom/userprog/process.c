@@ -40,7 +40,6 @@ int process_add_file (struct file *f);
    파일 디스크립터 번호를 리턴함 */
 int process_add_file (struct file *f) {
   struct thread *cur = thread_current ();
-  
   // 파일 객체가 저장될 FDT entry번호를 저장함.
   int current_fd = cur->next_fd;
   
@@ -52,7 +51,11 @@ int process_add_file (struct file *f) {
      null 값이 들어 있다는 것은 파일 객체 포인터가 들어있지 않다는 것을 의미하므로
      다음번 파일 객체를 받을 때 next_fd번째에 바로 저장할 수 있도록 함.*/
   do {
-    ASSERT(++cur->next_fd < FILE_MAX); // 혹시 파일 디스크립터 최대 개수 64개가 모자르진 않는지 디버그용으로 assertion 넣음 -> 192개로 변경
+    /* 수식이 복잡하지만 이렇게 하면 2~(FILE_MAX-1) 를 돌면서 next_fd를 setting할 수 있음 */
+    cur->next_fd = (cur->next_fd + 1 - 2) % (FILE_MAX - 2) + 2;
+    /* 한바퀴 돌고도 빈 FDT entry를 못찾으면 -1 리턴 */
+    if (cur->next_fd == current_fd) 
+      return -1;
   } while (cur->FDT[cur->next_fd] != NULL);
   
   // 리턴 값으로 해당 파일을 저장한 FD number를 리턴함
