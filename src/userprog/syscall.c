@@ -12,7 +12,7 @@ static void syscall_handler (struct intr_frame *);
 void
 syscall_init (void) 
 {
-  lock_init(filesys_lock);
+  lock_init(&filesys_lock);
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -21,7 +21,7 @@ int open(const char *file)
 	struct file *f = filesys_open(file); //실패할 경우 NULL을 리턴
 	int fd;
 
-	if (!f) 
+	if (!f) //case f == NULL
 		return -1;
 	fd = process_add_file(f);
 	if (!fd)
@@ -41,11 +41,14 @@ int read(int fd, void *buffer, unsigned size)
 {
 	//fd -> file pointer !  
 	struct file *f = process_get_file(fd);
+	int bytes_read;
 
-	lock_acquire(filesys_lock);	
+	lock_acquire(&filesys_lock);	
 	if(f) {
 		//파일에 내용 쓰는함수
-		return file_read(f, buffer, size);
+		bytes_read = file_read(f, buffer, size);
+		lock_relase(&filesys_lock);
+		return bytes_read;
 	} 
 	// f가 널이여도 단순히 -1 로 반환해주면안됨.
 	//fdt 에서 0인 파일은 파일 사이즈가 없음, stdin.stdout은 filesize가 0이므로 -1 리턴 하는게 맞음. 그렇지만 read함수에서는 읽고 쓸수있게 작업을 해줘야함.
@@ -59,24 +62,28 @@ int read(int fd, void *buffer, unsigned size)
 				break;
 			}
 		}
+		lock_relase(&filesys_lock);
 		return i;
 	}
-	lock_release(filesys_lock);
 }
 
 int write(int fd, void *buffer, unsigned size)
 {
 	struct file *f = process_get_file(fd);
+	int bytes_write;
 
-	lock_acquire(filesys_lock);	
+	lock_acquire(&filesys_lock);	
 	if(f) {
-		return file_write(f, buffer,size);
+		bytes_write = file_write(f, buffer,size);
+		lock_release(&filesys_lock);
+		return bytes_write;
 	} 
-	else if(fd ==1) {
+	else if(fd == 1) {
 		putbuf(buffer,size);
+		lock_release(&filesys_lock);
 		return size;	
 	}
-	lock_release(filesys_lock);
+	
 }
 
 void seek (int fd, unsigned position)
