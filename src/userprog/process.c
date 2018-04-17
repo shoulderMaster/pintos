@@ -27,13 +27,14 @@ int process_add_file(struct file *f)
 {
 	struct thread *t = thread_current();
 	int i;
-
-	for(i=0; i<MAX_FDT; i++) {	
-		if(t->fdt[(t->next_fd) % MAX_FDT] == NULL) {
+	
+	for(i = (t->next_fd)%MAX_FDT; i < MAX_FDT; i++) 
+		t->next_fd = i;
+		if(t->fdt[i] == NULL) {
 			t->fdt[t->next_fd++] = f;
-			return t->next_fd-1;	
+			return i-1;	
 		}
-		return NULL; //?
+		return -1; //return NULL;??
 	}
 }
 
