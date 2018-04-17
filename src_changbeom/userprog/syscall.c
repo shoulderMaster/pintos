@@ -237,8 +237,11 @@ int read (int fd, void *buffer, unsigned size) {
      
       /* input_getc()가 사용자 입력이 없으면 
          생길때 까지 기다려서 받는 함수이기 때문에
-         따로 EOF 이런 것을 고려할 필요가 없음*/
+         따로 EOF 이런 것을 고려할 필요가 없음
+         but '\n' 개행문자 받으면 끊어 줘야함 */
       ((char*)buffer)[i] = input_getc ();
+      if (((char*)buffer)[i] == '\n')
+        break;
     }  
 
     // 항상 size와 같은 값이겠지만 buffer에 저장된 크기라는 종속적으로 결정될 값을 의도함.
