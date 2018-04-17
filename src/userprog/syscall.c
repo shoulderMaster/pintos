@@ -21,10 +21,13 @@ int open(const char *file)
 	struct file *f = filesys_open(file); //실패할 경우 NULL을 리턴
 	int fd;
 
+	if(file ==NULL) {
+		exit(-1);
+	}
 	if (!f) //case f == NULL
 		return -1;
 	fd = process_add_file(f);
-	if (!fd)
+	if (fd == -1)
 		return -1;
 	return fd;
 }
@@ -91,7 +94,6 @@ void seek (int fd, unsigned position)
 	struct file *f = process_get_file(fd);
 	file_seek(f, position);
 }
-
 unsigned tell(int fd)
 {
 	struct file *f = process_get_file(fd);
