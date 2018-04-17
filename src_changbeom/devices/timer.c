@@ -95,6 +95,7 @@ timer_sleep (int64_t ticks)
   /* 기존의 busy waiting 방식의 timer_sleep 구현을 지움
   while (timer_elapsed (start) < ticks) 
     thread_yield ();  */
+  thread_sleep (start + ticks);
   
 }
 
@@ -177,7 +178,9 @@ timer_interrupt (struct intr_frame *args UNUSED)
 
   /* 매 틱마다 sleep queue에서 깨어날 thread가 있는지 확인하여, 
      깨우는 함수를 호출하도록 한다. */
-  thread_awake (get_next_tick_to_awake ()); 
+  if (ticks >= get_next_tick_to_awake ())  {
+    thread_awake (ticks); 
+  }
   
 }
 
