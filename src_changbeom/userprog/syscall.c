@@ -80,7 +80,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_EXIT :
         get_argument (esp, arg, 1);
         exit (arg[0]);
-        f->eax = arg[0];
+        //f->eax = arg[0]; //리턴값 넣어주는거임.
         break;
 
     case SYS_WAIT :
@@ -98,6 +98,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_CREATE :
         get_argument (esp, arg, 2);
         check_address (arg[0]);
+	//인자들 중 포인터형들은 check address를 해서 
+	//유저영역의 주소인지를 확인해줘야함.
         f->eax = create ((const char*)arg[0], (unsigned)arg[1]);
         break;
 
@@ -187,7 +189,6 @@ void seek (int fd, unsigned position) {
        position이 파일 크기를 벗어나면 그냥 리턴함 */ 
     return;
   } else {
-
     /* 내부적으로 파일 객체의 pos멤버를 position값을 바꾸도록 작동함 */
     file_seek (file_object, position);
     return position; 
@@ -272,11 +273,9 @@ int filesize (int fd) {
   
   /* file_length() 는 인자로 받아온 파일 객체 포인터가 null일 경우 assertion을 일으킴
      받아온 fd에 해당하는 파일 객체가 null일 경우 -1을 리턴할 수 있게 예외처리를 함*/
-  if (file_object == NULL) {
-    
+  if (file_object == NULL) { 
     return -1;
   } else { 
-
     /* file_length() 내부적으로 
        file object->inode->inode_disk.length 를 
        참조하여 파일 사이즈를 가져옴 */

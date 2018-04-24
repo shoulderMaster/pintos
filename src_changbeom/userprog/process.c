@@ -22,7 +22,7 @@
 
 /* 한 프로세스에 있는 FDT의 entry 최대 개수
    multi-oom 테스트 케이스가 126개까지 fd를 열어봄 */
-#define FILE_MAX 192
+#define FILE_MAX 128
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -77,6 +77,7 @@ void process_close_file (int fd) {
   file_close (file);
   /* 해당 FDT의 엔트리를 null 값으로 바꿈 */
   thread_current ()->FDT[fd] = NULL;
+  //thread_current()->next_fd = fd;
 
 }
 
@@ -350,7 +351,9 @@ process_wait (tid_t child_pid)
   }
 
   /*  wait하고자 하는 자식 프로세스가 아직 종료가 안되었다면 
-      프로세스가 종료되고 sema_up될 때까지 block상태로 기다린다.*/
+      프로세스가 종료되고 sema_up될 때까지 block상태로 기다린다.
+      종료된 스레드를 세마 다운하는건 큰일남. 부모프로세스가 평생 잠들거나, 
+      커널이 터질수 있음. 그래서 if로 확인해주는것이다. */
   if (!child->exited)
   {
     sema_down(&child->exit_sema);

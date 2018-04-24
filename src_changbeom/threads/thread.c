@@ -15,6 +15,8 @@
 #include "userprog/process.h"
 #endif
 
+#define MAX 100000
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -27,6 +29,12 @@ static struct list ready_list;
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
+
+/* sleep queue 자료구조 추가 */
+static struct list sleep_list;
+
+/* sleep_list에서 대기중인 스레드들의 wakeup_tick값 중 최소값을 저장하기위한 변수 추가*/
+int64_t next_tick_to_awake = MAX;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -92,6 +100,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+	list_init (&sleep_list); // sleep_list 초기화
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -137,6 +146,67 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+}
+
+
+void thread_sleep (int64_t ticks)
+{
+	struct thread * cur = thread_current();
+	//int64_t start = timer_ticks ();
+
+	/* 현재 스레드가 idle 스레드가 아닐경우,
+		thread의 상태를 BLOCKED로 바꾸고 깨어나야할 ticks을 저장, 슬립큐에 삽입하고, 
+		awake함수가 실행되어야할 tick값을 update*/
+	if (!(cur->tid == 2))
+	{
+		//cur->status = THREAD_BLOCKED;
+		cur->wakeup_tick = ticks;
+		list_push_back(&sleep_list, &cur->elem);
+		update_next_tick_to_awake(ticks);
+	}
+	/* 해당 과정중에는 인터럽트를 받아들이지않는다. */
+	/* 현재 스레드를 슬립큐에 삽입한후에 스케줄한다. */
+	/* thread_block() 함수에서 현재스레드의 status를 BLOCKED로 바꿔주고 스케줄을해줌. */
+	thread_block();
+}
+
+void thread_awake(int64_t ticks) 
+{
+	struct list_elem *elem;
+
+	/* sleep_list의 모든 entry를 순회하며 다음과 같은 작업을 수행한다.
+		깨워야할 tick이 현재 tick보다 크다면 슬립큐에서 제거하고 unblock한다.
+		작다면, update_next_tick_to_awake()를 호출한다. */
+	for(elem = sleep_list.head.next; elem != &sleep_list.tail; elem = elem->next)
+	{
+		struct thread *t = list_entry(elem, struct thread, elem);
+		if( ticks >= t-> wakeup_tick ) {
+			list_remove(elem);
+			thread_unblock(t);
+			/* thread_unblocked() :READY리스트에 넣어주고 레디상태로바꿔주고 return하는 함수임, 이 스레드가 cpu에서 실행할수 있는 상태가됨 */
+		} 
+		/* else {
+			continue;
+			update_next_tick_to_awake(ticks); // else 가 있을 필요가있나?
+		} */
+	}
+
+}
+
+void update_next_tick_to_awake(int64_t ticks)
+{	
+	/* next_tick_to_awake가 깨워야할 스레드중 가장 작은 tick을 갖도록
+	업데이트 한다*/
+	if (ticks >= next_tick_to_awake)
+		;
+	else
+		next_tick_to_awake = ticks;
+}
+
+int64_t get_next_tick_to_awake(void)
+{
+	/* next_tick_to_awake을반환한다. */
+	return next_tick_to_awake;
 }
 
 /* Prints thread statistics. */
@@ -227,9 +297,15 @@ thread_create (const char *name, int priority,
 
   //커널에서 관리하는 모든 프로세스 리스트 구조체에 새로 생성된 PCB를 삽입함.
   list_push_back(&thread_current()->child_list, &t->child_elem);
+
   /* Add to run queue. */
   thread_unblock (t);
 
+	/* 생성된 스레드의 우선순위가 현재 실행중 이스레드의 우선순위보다 높다면 CPU를 양보한다.*/
+	// if ( t->priority > thread_current()->priority)
+	if ( t->priority > thread_get_priority() )
+		thread_yield();
+	
   return tid;
 }
 
@@ -332,10 +408,14 @@ thread_exit (void)
      PCB내부의 세마포어 객체를 사용하지 않고 커널에서 관리하는 전용 전역 semaphore객체를 사용하므로
      PCB 내부의 세마포어 객체를 다루는 이 루틴에서 main 프로세스와 idle프로세스에 대해선 작동하지 않게함.*/
   if (!(thread_current()->tid == 1 || thread_current()->tid == 2)) 
-  {
+	{
     // 종료 세마포어 객체를 up하여 wait하고 있는 부모프로세스에게 프로세스 종료를 알림.
     sema_up (&thread_current ()->exit_sema);
-  }
+	}
+  /* -q 옵션없이 main thread가 꺼질때 마지막에 thread_exit()를 하게되는데, 
+			여기서 sema_up을 하게되면 커널패닉이뜨게됨. 
+			왜냐하면 exit_sema라는 pcb 내부의 세마포어 객체를 사용하지 않기때문에
+			(없는 객체를 사용하기때문). */
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
@@ -513,6 +593,7 @@ init_thread (struct thread *t, const char *name, int priority)
   
   // 자식 리스트 구조체 멤버를 초기화 함.
   list_init(&t->child_list);
+
   /* process_exit () 에 의해 혹시 진짜 스레기 값이 file_close()되지 않을까 하여
      기본 초기 값을 NULL로 초기화 해줌. NULL값은 알아서 예외처리 됨. */
   t->run_file = NULL;

@@ -100,7 +100,7 @@ struct thread
     struct thread *parent;
 
     /* 자식 리스트 element */
-    struct list_elem child_elem;//?
+    struct list_elem child_elem;
         
     /* 자식 리스트 */
     struct list child_list;
@@ -129,6 +129,9 @@ struct thread
     
     /* 실행 중인 ELF파일 객체를 PCB에 유지하기 위한 멤버 변수*/
     struct file *run_file;
+
+	/* 깨어나야할 tick을 저장할 변수 추가*/
+	int64_t wakeup_tick;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -162,6 +165,12 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+
+/* alarm clock 구현을 위한 함수들 선언 */
+void thread_sleep(int64_t ticks); // 실행 중인 스레드를 슬립으로 만듬
+void thread_awake(int64_t ticks); // 슬립큐에서 깨워야할 스레드를 깨움
+void update_next_tick_to_awake(int64_t ticks); // 최소틱을 가진 스레드 저장
+int64_t get_next_tick_to_awake(void); // thread.c의 next_tick_to_awake 반환
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
