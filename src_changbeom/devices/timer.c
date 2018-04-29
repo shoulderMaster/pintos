@@ -98,6 +98,7 @@ timer_sleep (int64_t ticks)
 	*/
 	
 	/* 새로 구현한 thread를 sleep queue에 삽입하는 함수를 호출*/
+	ticks = start + ticks;
 	thread_sleep(ticks);
 }
 

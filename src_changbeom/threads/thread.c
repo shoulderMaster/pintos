@@ -79,6 +79,9 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+void test_max_priority(void);
+bool cmp_priority (const struct list_elem* a_, const struct list_elem* b_, void* aux UNUSED);
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -156,41 +159,43 @@ void thread_sleep (int64_t ticks)
 
 	/* 현재 스레드가 idle 스레드가 아닐경우,
 		thread의 상태를 BLOCKED로 바꾸고 깨어나야할 ticks을 저장, 슬립큐에 삽입하고, 
-		awake함수가 실행되어야할 tick값을 update*/
-	if (!(cur->tid == 2))
+		awake함수가 실행되어야할 tick값을 update*/	
+	// if (!(cur->tid == 2))
+	if (cur != idle_thread)
 	{
 		//cur->status = THREAD_BLOCKED;
-		cur->wakeup_tick = ticks;
+		cur->wakeup_tick = ticks; //깨워줘야할시간
 		list_push_back(&sleep_list, &cur->elem);
 		update_next_tick_to_awake(ticks);
+		thread_block();
 	}
 	/* 해당 과정중에는 인터럽트를 받아들이지않는다. */
 	/* 현재 스레드를 슬립큐에 삽입한후에 스케줄한다. */
 	/* thread_block() 함수에서 현재스레드의 status를 BLOCKED로 바꿔주고 스케줄을해줌. */
-	thread_block();
 }
 
 void thread_awake(int64_t ticks) 
 {
-	struct list_elem *elem;
+	struct list_elem *e;
 
 	/* sleep_list의 모든 entry를 순회하며 다음과 같은 작업을 수행한다.
 		깨워야할 tick이 현재 tick보다 크다면 슬립큐에서 제거하고 unblock한다.
 		작다면, update_next_tick_to_awake()를 호출한다. */
-	for(elem = sleep_list.head.next; elem != &sleep_list.tail; elem = elem->next)
-	{
-		struct thread *t = list_entry(elem, struct thread, elem);
+		//for (e = list_begin(sleep_list); e != list_end(sleep_list); e = list_next(e))
+		for(e = sleep_list.head.next; e != &sleep_list.tail; e = e->next)  
+		{
+		struct thread *t = list_entry(e, struct thread, elem);
 		if( ticks >= t-> wakeup_tick ) {
-			list_remove(elem);
-			thread_unblock(t);
-			/* thread_unblocked() :READY리스트에 넣어주고 레디상태로바꿔주고 return하는 함수임, 이 스레드가 cpu에서 실행할수 있는 상태가됨 */
+			list_remove(e);
+			thread_unblock(t); 
+	/* thread_unblocked() :READY리스트에 넣어주고 레디상태로바꿔주고 return하는 함수임, 
+		이 스레드가 cpu에서 실행할수 있는 상태가됨 */
 		} 
 		/* else {
 			continue;
 			update_next_tick_to_awake(ticks); // else 가 있을 필요가있나?
 		} */
 	}
-
 }
 
 void update_next_tick_to_awake(int64_t ticks)
@@ -301,10 +306,11 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
-	/* 생성된 스레드의 우선순위가 현재 실행중 이스레드의 우선순위보다 높다면 CPU를 양보한다.*/
+	/* 생성된 스레드의 우선순위가 현재 실행중 이 스레드의 우선순위보다 높다면 CPU를 양보한다.*/
 	// if ( t->priority > thread_current()->priority)
-	if ( t->priority > thread_get_priority() )
-		thread_yield();
+	// if ( t->priority > thread_get_priority() )
+	// thread_yield();
+	test_max_priority();
 	
   return tid;
 }
@@ -340,12 +346,24 @@ thread_unblock (struct thread *t)
 
   ASSERT (is_thread (t));
 
+	/* 스레드가 unblock 될 때 우선순위 순으로 정렬되어
+	ready_list에 삽입되도록 수정*/
+
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  //list_push_back (&ready_list, &t->elem);
+	list_insert_ordered(&ready_list, &t->elem, cmp_priority, 0);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+
 }
+
+bool cmp_priority (const struct list_elem* a_, const struct list_elem* b_, void* aux UNUSED)
+{
+	return list_entry(a_, struct thread, elem)->priority > list_entry(b_, struct thread, elem)->priority ;
+
+}
+
 
 /* Returns the name of the running thread. */
 const char *
@@ -433,7 +451,8 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    //list_push_back (&ready_list, &cur->elem);
+		list_insert_ordered(&ready_list, &cur->elem, cmp_priority, 0);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -456,11 +475,29 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+/* 스레드가 새로 생성되서 ready_list에 추가되거나, 
+현재 실행중인 스레드의 우선순위가 재 조정되는 순간에,
+ready_list의 첫번째 스레드가 CPU 점유 중인 스레드 보다 우선순위가 높은 상황이 발생할 수 있다. 따라서 스레드를 새로 생성하는 함수인 thread_create 함수와 현재 스레드의 우선순위를 재조정하는 thread_set_priority함수 의 내부에 test_max_priority()를 추가합니다. 
+*/ 
+
+void test_max_priority (void)
+{
+	// ready_list를 가져올때 ready_list가 비여있지 않은지 확인해야 한다.
+	if ( !list_empty(&ready_list) ) {
+		struct thread *t = list_entry(ready_list.head.next, struct thread , elem);
+		if( thread_get_priority() < t->priority) {
+			thread_yield();
+		}
+	}
+
+}
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+	test_max_priority();
 }
 
 /* Returns the current thread's priority. */

@@ -453,7 +453,7 @@ list_insert_ordered (struct list *list, struct list_elem *elem,
   ASSERT (less != NULL);
 
   for (e = list_begin (list); e != list_end (list); e = list_next (e))
-    if (less (elem, e, aux))
+    if (less (elem, e, aux)) // elem : 새로넣으려는 스레드, e : 원래 리스트 처음~끝
       break;
   return list_insert (e, elem);
 }
