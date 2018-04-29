@@ -77,7 +77,8 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-
+bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED); 
+void test_max_priority (void); 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -286,7 +287,7 @@ thread_create (const char *name, int priority,
   list_push_back(&thread_current()->child_list, &t->child_elem);
   /* Add to run queue. */
   thread_unblock (t);
-
+  test_max_priority ();
   return tid;
 }
 
@@ -323,9 +324,32 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  //list_push_back (&ready_list, &t->elem);
+  list_insert_ordered (&ready_list, &t->elem, cmp_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+}
+
+
+void test_max_priority (void) {
+
+  struct list_elem *cur = &thread_current ()->elem;
+  struct list_elem *highest_priority_thread;
+  
+  if (list_empty (&ready_list)) return;
+  
+  highest_priority_thread = list_begin (&ready_list);
+  if (cmp_priority (highest_priority_thread, cur, NULL)) {
+    thread_yield ();
+  }
+}
+
+bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+  struct thread *thread_a, *thread_b;
+  thread_a = list_entry (a, struct thread, elem);
+  thread_b = list_entry (b, struct thread, elem);
+  
+  return thread_a->priority > thread_b->priority;
 }
 
 /* Returns the name of the running thread. */
@@ -409,8 +433,9 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+  /* if (cur != idle_thread) 
+    list_push_back (&ready_list, &cur->elem); */
+  list_insert_ordered (&ready_list, &cur->elem, cmp_priority, NULL);  
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -438,6 +463,8 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  
+  test_max_priority (); 
 }
 
 /* Returns the current thread's priority. */
