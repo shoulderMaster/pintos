@@ -336,21 +336,16 @@ void test_max_priority (void) {
   struct list_elem *cur = &thread_current ()->elem;
   struct list_elem *highest_priority_thread;
   
-  if (list_empty (&ready_list)) return;
-  
-  highest_priority_thread = list_begin (&ready_list);
-  if (cmp_priority (highest_priority_thread, cur, NULL)) {
-    thread_yield ();
+  if (!list_empty (&ready_list)) {
+    highest_priority_thread = list_begin (&ready_list);
+   
+    if (cmp_priority (highest_priority_thread, cur, NULL)) {
+      thread_yield ();
+    }
   }
 }
 
-bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
-  struct thread *thread_a, *thread_b;
-  thread_a = list_entry (a, struct thread, elem);
-  thread_b = list_entry (b, struct thread, elem);
-  
-  return thread_a->priority > thread_b->priority;
-}
+
 
 /* Returns the name of the running thread. */
 const char *
