@@ -15,6 +15,8 @@
 #include "userprog/process.h"
 #endif
 
+#define MAX_DEPTH 8
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -77,8 +79,70 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED); 
 void test_max_priority (void); 
+bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) ;
+void remove_with_lock (struct lock *lock);
+void donate_priority (void);
+void refresh_priority (void); 
+
+
+
+bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+  struct thread *thread_a, *thread_b;
+  thread_a = list_entry (a, struct thread, elem);
+  thread_b = list_entry (b, struct thread, elem);
+  
+  return thread_a->priority > thread_b->priority;
+}
+
+
+void donate_priority (void) {
+  int depth = 1;
+  struct thread *thread = thread_current (); 
+  struct lock *lock = thread->wait_on_lock;
+  while (depth < MAX_DEPTH && lock) {
+    if (   lock->holder 
+        && lock->holder->priority < thread->priority ) { 
+      lock->holder->priority = thread->priority;
+      thread = lock->holder;
+      lock = thread->wait_on_lock;
+      depth++;
+    } else {
+      break;
+    }
+  }
+}
+
+void remove_with_lock (struct lock *lock) {
+  struct list_elem *elem = NULL;
+  struct list *lock_waiters = &lock->semaphore.waiters;
+  struct thread *donator = NULL;
+  for (elem = list_begin (lock_waiters)
+      ; elem != list_end (lock_waiters); elem = list_next (elem)) {
+    donator = list_entry (elem, struct thread, elem);
+    list_remove (&donator->donation_elem);
+  }
+}
+
+void refresh_priority (void) {
+  struct thread *cur = thread_current (); 
+  struct thread *donator = NULL;
+  struct list_elem *elem = NULL;
+  int max_priority = cur->init_priority;
+  
+  if (list_empty (&cur->donations)) {
+    cur->priority = cur->init_priority;
+    return;
+  }
+  
+  elem = list_begin (&cur->donations);  
+  donator = list_entry (elem, struct thread, donation_elem);
+  if (max_priority < donator->priority) {
+    max_priority = donator->priority;
+  }
+  cur->priority = max_priority;
+}
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -102,6 +166,7 @@ thread_init (void)
   list_init (&all_list);
   /* sleep_list 초기화 함. */
   list_init (&sleep_list);
+
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -339,10 +404,10 @@ void test_max_priority (void) {
   if (!list_empty (&ready_list)) {
     highest_priority_thread = list_begin (&ready_list);
    
-    if (cmp_priority (highest_priority_thread, cur, NULL)) {
+    if (cmp_priority (highest_priority_thread, cur, NULL))
       thread_yield ();
-    }
   }
+  return;
 }
 
 
@@ -457,8 +522,13 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
-  
+  struct thread *cur = thread_current ();
+  int old_priority = cur->priority;
+  cur->init_priority = new_priority;
+  refresh_priority ();
+  if (old_priority < cur->priority) {
+    donate_priority ();
+  }
   test_max_priority (); 
 }
 
@@ -595,6 +665,10 @@ init_thread (struct thread *t, const char *name, int priority)
   /* process_exit () 에 의해 혹시 진짜 스레기 값이 file_close()되지 않을까 하여
      기본 초기 값을 NULL로 초기화 해줌. NULL값은 알아서 예외처리 됨. */
   t->run_file = NULL;
+
+  t->init_priority = priority;
+  t->wait_on_lock = NULL;
+  list_init (&t->donations);
 
 
 }

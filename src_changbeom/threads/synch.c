@@ -43,8 +43,6 @@
    - up or "V": increment the value (and wake up one waiting
      thread, if any). */
 struct semaphore_elem;
-bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED); 
-bool cmp_sem_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED); 
 void
 sema_init (struct semaphore *sema, unsigned value) 
 {
@@ -54,6 +52,7 @@ sema_init (struct semaphore *sema, unsigned value)
   list_init (&sema->waiters);
 }
 
+bool cmp_sem_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
    to become positive and then atomically decrements it.
 
@@ -132,13 +131,6 @@ sema_up (struct semaphore *sema)
   intr_set_level (old_level);
 }
 
-bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
-  struct thread *thread_a, *thread_b;
-  thread_a = list_entry (a, struct thread, elem);
-  thread_b = list_entry (b, struct thread, elem);
-  
-  return thread_a->priority > thread_b->priority;
-}
 static void sema_test_helper (void *sema_);
 
 /* Self-test for semaphores that makes control "ping-pong"
@@ -214,8 +206,17 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-
+  struct thread *cur = thread_current ();
+  
+  if (lock->holder) {
+    cur->wait_on_lock = lock;
+    list_insert_ordered (&lock->holder->donations, &cur->donation_elem, cmp_priority, NULL);
+    donate_priority ();
+  }
+  
   sema_down (&lock->semaphore);
+  
+  cur->wait_on_lock = NULL;
   lock->holder = thread_current ();
 }
 
@@ -251,6 +252,8 @@ lock_release (struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
 
   lock->holder = NULL;
+  remove_with_lock (lock);
+  refresh_priority ();
   sema_up (&lock->semaphore);
 }
 
@@ -272,7 +275,6 @@ struct semaphore_elem
     struct semaphore semaphore;         /* This semaphore. */
   };
 
-
 bool cmp_sem_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
   struct semaphore_elem *sa = list_entry (a, struct semaphore_elem, elem);
   struct semaphore_elem *sb = list_entry (b, struct semaphore_elem, elem);
@@ -281,6 +283,8 @@ bool cmp_sem_priority (const struct list_elem *a, const struct list_elem *b, voi
   
   return thread_a->priority > thread_b->priority;
 }
+
+
 
 
 
