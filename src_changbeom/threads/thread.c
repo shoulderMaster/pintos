@@ -224,7 +224,7 @@ void thread_sleep (int64_t ticks) {
 
     //cur->status = THREAD_BLOCKED;
     cur->wakeup_tick = ticks; 
-    list_push_back (&sleep_list, &cur->sleep_elem);
+    list_push_back (&sleep_list, &cur->elem);
     update_next_tick_to_awake (ticks); 
     thread_block ();
     /*  
@@ -238,12 +238,21 @@ void thread_sleep (int64_t ticks) {
 }
 
 void thread_awake (int64_t ticks) {
-  struct list_elem *elem = NULL;
+  struct list_elem *elem = list_begin (&sleep_list);
   struct thread *pcb = NULL;
-  for (elem = sleep_list.head.next; elem != &sleep_list.tail; elem = elem->next) {
+  /* for (elem = sleep_list.head.next; elem != &sleep_list.tail; elem = elem->next) {
     pcb = list_entry (elem, struct thread, sleep_elem);
     if (pcb->wakeup_tick <= ticks) {
       list_remove (elem);
+      thread_unblock (pcb);
+    } else {
+      update_next_tick_to_awake (pcb->wakeup_tick);
+    }
+  } */
+  while (elem != list_end (&sleep_list)) {
+    pcb = list_entry (elem, struct thread, elem);
+    elem = list_next (elem);
+    if (pcb->wakeup_tick <= ticks) {
       thread_unblock (pcb);
     } else {
       update_next_tick_to_awake (pcb->wakeup_tick);
