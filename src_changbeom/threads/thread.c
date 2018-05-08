@@ -35,7 +35,7 @@ static struct list sleep_list;
 
 /* sleep_list 에 저장된 프로세스 wakeup_tick 시간 중 가장 작은 것을 저장.
    초기 값으로 가장 큰 숫자인 INT64_MAX 넣어줌 */
-int64_t next_tick_to_awake = INT64_MAX;
+int64_t next_tick_to_awake = INT32_MAX;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -220,7 +220,7 @@ void thread_sleep (int64_t ticks) {
   struct thread *cur = thread_current ();
   enum intr_level old_level = intr_disable ();
   //struct thread *prev_t = NULL, *next_t = NULL;
-  if (cur->tid != 2)  {
+  if (cur != idle_thread)  {
 
     //cur->status = THREAD_BLOCKED;
     cur->wakeup_tick = ticks; 
@@ -239,6 +239,7 @@ void thread_sleep (int64_t ticks) {
 
 void thread_awake (int64_t ticks) {
   struct list_elem *elem = list_begin (&sleep_list);
+  struct list_elem *cur_elem = NULL;
   struct thread *pcb = NULL;
   /* for (elem = sleep_list.head.next; elem != &sleep_list.tail; elem = elem->next) {
     pcb = list_entry (elem, struct thread, sleep_elem);
@@ -251,8 +252,10 @@ void thread_awake (int64_t ticks) {
   } */
   while (elem != list_end (&sleep_list)) {
     pcb = list_entry (elem, struct thread, elem);
+    cur_elem = elem; 
     elem = list_next (elem);
     if (pcb->wakeup_tick <= ticks) {
+      list_remove (cur_elem);
       thread_unblock (pcb);
     } else {
       update_next_tick_to_awake (pcb->wakeup_tick);
@@ -481,7 +484,7 @@ thread_exit (void)
   /* 커널이 부팅하고 나서 첫번째와 두번째로 생기는 main 프로세스와 idle프로세스는 
      PCB내부의 세마포어 객체를 사용하지 않고 커널에서 관리하는 전용 전역 semaphore객체를 사용하므로
      PCB 내부의 세마포어 객체를 다루는 이 루틴에서 main 프로세스와 idle프로세스에 대해선 작동하지 않게함.*/
-  if (!(thread_current()->tid == 1 || thread_current()->tid == 2)) 
+  if (!(thread_current () == initial_thread || thread_current () == idle_thread)) 
   {
     // 종료 세마포어 객체를 up하여 wait하고 있는 부모프로세스에게 프로세스 종료를 알림.
     sema_up (&thread_current ()->exit_sema);
