@@ -25,6 +25,9 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) ;
+bool cmp_sem_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
 
 
 /* A kernel thread or user process.
@@ -129,6 +132,21 @@ struct thread
     
     /* 실행 중인 ELF파일 객체를 PCB에 유지하기 위한 멤버 변수*/
     struct file *run_file;
+    
+    /* sleep_list를 만들기 위한 list_elem */
+    struct list_elem sleep_elem;
+
+    /* alarm clock을 구현하기 위해 프로세스를 재울 시간을 저장함 */
+    int64_t wakeup_tick;
+
+    int init_priority;
+
+    struct lock *wait_on_lock;
+
+    struct list donations;
+
+    struct list_elem donation_elem;
+
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

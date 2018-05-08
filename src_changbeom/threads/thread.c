@@ -15,6 +15,8 @@
 #include "userprog/process.h"
 #endif
 
+#define MAX_DEPTH 8
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -27,6 +29,13 @@ static struct list ready_list;
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
+
+/* sleep된 프로세스 구조체들을 관리하는 리스트. alarm clock 구현시 사용 */
+static struct list sleep_list;
+
+/* sleep_list 에 저장된 프로세스 wakeup_tick 시간 중 가장 작은 것을 저장.
+   초기 값으로 가장 큰 숫자인 INT64_MAX 넣어줌 */
+int64_t next_tick_to_awake = INT32_MAX;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -70,6 +79,69 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+void test_max_priority (void); 
+bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) ;
+void remove_with_lock (struct lock *lock);
+void donate_priority (void);
+void refresh_priority (void); 
+
+
+
+bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+  struct thread *thread_a, *thread_b;
+  thread_a = list_entry (a, struct thread, elem);
+  thread_b = list_entry (b, struct thread, elem);
+  
+  return thread_a->priority > thread_b->priority;
+}
+
+
+void donate_priority (void) {
+  int depth = 1;
+  struct thread *thread = thread_current (); 
+  struct lock *lock = thread->wait_on_lock;
+  while (depth < MAX_DEPTH && lock) {
+    if (   lock->holder 
+        && lock->holder->priority < thread->priority ) { 
+      lock->holder->priority = thread->priority;
+      thread = lock->holder;
+      lock = thread->wait_on_lock;
+      depth++;
+    } else {
+      break;
+    }
+  }
+}
+
+void remove_with_lock (struct lock *lock) {
+  struct list_elem *elem = NULL;
+  struct list *lock_waiters = &lock->semaphore.waiters;
+  struct thread *donator = NULL;
+  for (elem = list_begin (lock_waiters)
+      ; elem != list_end (lock_waiters); elem = list_next (elem)) {
+    donator = list_entry (elem, struct thread, elem);
+    list_remove (&donator->donation_elem);
+  }
+}
+
+void refresh_priority (void) {
+  struct thread *cur = thread_current (); 
+  struct thread *donator = NULL;
+  struct list_elem *elem = NULL;
+  int max_priority = cur->init_priority;
+  
+  if (list_empty (&cur->donations)) {
+    cur->priority = cur->init_priority;
+    return;
+  }
+  
+  elem = list_begin (&cur->donations);  
+  donator = list_entry (elem, struct thread, donation_elem);
+  if (max_priority < donator->priority) {
+    max_priority = donator->priority;
+  }
+  cur->priority = max_priority;
+}
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -92,6 +164,9 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  /* sleep_list 초기화 함. */
+  list_init (&sleep_list);
+
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -138,6 +213,66 @@ thread_tick (void)
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
 }
+
+
+
+void thread_sleep (int64_t ticks) {
+  struct thread *cur = thread_current ();
+  enum intr_level old_level = intr_disable ();
+  //struct thread *prev_t = NULL, *next_t = NULL;
+  if (cur != idle_thread)  {
+
+    //cur->status = THREAD_BLOCKED;
+    cur->wakeup_tick = ticks; 
+    list_push_back (&sleep_list, &cur->elem);
+    update_next_tick_to_awake (ticks); 
+    thread_block ();
+    /*  
+    for (elem = sleep_list.head.next; elem != &sleep_list.tail; elem = elem->next) { 
+      cur_t = list_entry (elem, struct thread, elem);
+      next_t = list_entry (elem->next, struct thread, elem);
+      if (prev_t->wakeup_tick <= cur->wakeup_tick )
+     */
+  }
+  intr_set_level (old_level);
+}
+
+void thread_awake (int64_t ticks) {
+  struct list_elem *elem = list_begin (&sleep_list);
+  struct list_elem *cur_elem = NULL;
+  struct thread *pcb = NULL;
+  /* for (elem = sleep_list.head.next; elem != &sleep_list.tail; elem = elem->next) {
+    pcb = list_entry (elem, struct thread, sleep_elem);
+    if (pcb->wakeup_tick <= ticks) {
+      list_remove (elem);
+      thread_unblock (pcb);
+    } else {
+      update_next_tick_to_awake (pcb->wakeup_tick);
+    }
+  } */
+  while (elem != list_end (&sleep_list)) {
+    pcb = list_entry (elem, struct thread, elem);
+    cur_elem = elem; 
+    elem = list_next (elem);
+    if (pcb->wakeup_tick <= ticks) {
+      list_remove (cur_elem);
+      thread_unblock (pcb);
+    } else {
+      update_next_tick_to_awake (pcb->wakeup_tick);
+    }
+  }
+}
+
+void update_next_tick_to_awake (int64_t ticks) {
+  if (ticks < next_tick_to_awake ) {
+    next_tick_to_awake = ticks;
+  }
+}
+
+int64_t get_next_tick_to_awake (void) {
+  return next_tick_to_awake;  
+}
+
 
 /* Prints thread statistics. */
 void
@@ -229,7 +364,7 @@ thread_create (const char *name, int priority,
   list_push_back(&thread_current()->child_list, &t->child_elem);
   /* Add to run queue. */
   thread_unblock (t);
-
+  test_max_priority ();
   return tid;
 }
 
@@ -266,10 +401,28 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  //list_push_back (&ready_list, &t->elem);
+  list_insert_ordered (&ready_list, &t->elem, cmp_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
+
+
+void test_max_priority (void) {
+
+  struct list_elem *cur = &thread_current ()->elem;
+  struct list_elem *highest_priority_thread;
+  
+  if (!list_empty (&ready_list)) {
+    highest_priority_thread = list_begin (&ready_list);
+   
+    if (cmp_priority (highest_priority_thread, cur, NULL))
+      thread_yield ();
+  }
+  return;
+}
+
+
 
 /* Returns the name of the running thread. */
 const char *
@@ -331,7 +484,7 @@ thread_exit (void)
   /* 커널이 부팅하고 나서 첫번째와 두번째로 생기는 main 프로세스와 idle프로세스는 
      PCB내부의 세마포어 객체를 사용하지 않고 커널에서 관리하는 전용 전역 semaphore객체를 사용하므로
      PCB 내부의 세마포어 객체를 다루는 이 루틴에서 main 프로세스와 idle프로세스에 대해선 작동하지 않게함.*/
-  if (!(thread_current()->tid == 1 || thread_current()->tid == 2)) 
+  if (!(thread_current () == initial_thread || thread_current () == idle_thread)) 
   {
     // 종료 세마포어 객체를 up하여 wait하고 있는 부모프로세스에게 프로세스 종료를 알림.
     sema_up (&thread_current ()->exit_sema);
@@ -352,8 +505,9 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+  /* if (cur != idle_thread) 
+    list_push_back (&ready_list, &cur->elem); */
+  list_insert_ordered (&ready_list, &cur->elem, cmp_priority, NULL);  
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -380,7 +534,14 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  struct thread *cur = thread_current ();
+  int old_priority = cur->priority;
+  cur->init_priority = new_priority;
+  refresh_priority ();
+  if (old_priority < cur->priority) {
+    donate_priority ();
+  }
+  test_max_priority (); 
 }
 
 /* Returns the current thread's priority. */
@@ -516,6 +677,10 @@ init_thread (struct thread *t, const char *name, int priority)
   /* process_exit () 에 의해 혹시 진짜 스레기 값이 file_close()되지 않을까 하여
      기본 초기 값을 NULL로 초기화 해줌. NULL값은 알아서 예외처리 됨. */
   t->run_file = NULL;
+
+  t->init_priority = priority;
+  t->wait_on_lock = NULL;
+  list_init (&t->donations);
 
 
 }
