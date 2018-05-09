@@ -15,6 +15,8 @@
 #include "userprog/process.h"
 #endif
 
+/* 자신이 가지고 있는 우선순위가 충분히 높다면,
+   nested되어 있는 thread 최대 8개까지 priority를 donate한다.*/
 #define MAX_DEPTH 8
 
 /* Random value for struct thread's `magic' member.
@@ -85,8 +87,8 @@ void remove_with_lock (struct lock *lock);
 void donate_priority (void);
 void refresh_priority (void); 
 
-
-
+ /*  두 elem을 각각 포함하는 thread의 priority를 비교해주는 함수이다.
+  list_insert_ordered, list_sort 등에서 사용된다 */
 bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
   struct thread *thread_a, *thread_b;
   thread_a = list_entry (a, struct thread, elem);
@@ -95,12 +97,18 @@ bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *a
   return thread_a->priority > thread_b->priority;
 }
 
-
+ /* 자신이 가지고 있는 priority를 자신이 acquire하려고 하는 lock을 갖고있는 thread에게 donate하고, 
+    nested되어 있는 경우 최대 8개 depth 까지 donation이 이뤄진다.
+    lock_acquire(), thread_set_priority() 에 의해 호출되어진다.*/
 void donate_priority (void) {
   int depth = 1;
   struct thread *thread = thread_current (); 
   struct lock *lock = thread->wait_on_lock;
   while (depth < MAX_DEPTH && lock) {
+    /* 해당 스레드가 기다리고 있는 락이 있을경우, 현재 스레드의 우선순위보다
+       현재 스레드가 기다리고 있는 락을 점유한 스레드의 우선순위가 작을 때, 
+       락을 점유하고 있는 스레드의 우선순위가 높아질 수 있도록 
+       현재 스레드의 우선순위를 donation한다.*/
     if (   lock->holder 
         && lock->holder->priority < thread->priority ) { 
       lock->holder->priority = thread->priority;
@@ -108,11 +116,18 @@ void donate_priority (void) {
       lock = thread->wait_on_lock;
       depth++;
     } else {
+      /* 위 조건문을 실행해지 못했다는 것은, nested된 thread가 더이상 없다거나,
+         있더라도 자신보다 우선순위가 더 높은 경우이므로
+         nested priority donation을 수행하는 반복문을 탈출한다. */
       break;
     }
   }
 }
 
+/* 락을 해제하기 전에 해당 lock을 기다리기 위해
+   우선순위를 현재 스레드에게 donate한 스레드들의 donation_elem을
+   현재 스레드의 donations list에서 빼준다.
+   이는 donated priority가 락을 해제함으로서 반납되는 것을 의미한다. */
 void remove_with_lock (struct lock *lock) {
   struct list_elem *elem = NULL;
   struct list *lock_waiters = &lock->semaphore.waiters;
@@ -124,17 +139,29 @@ void remove_with_lock (struct lock *lock) {
   }
 }
 
+/*어떤 스레드가 우선순위가 새로 바뀌거나, lock을 반환하고 donated priority를 반납하면서
+  우선순위가 변경될 때, 변경된 우선순위와 다른 lock을 점유하면서 다른 스레드들이 해당 lock을
+  대기하면서 donate해준  priority들과 비교하여 가장 높은 priority로 바꾸는 작업을 함.  */
 void refresh_priority (void) {
   struct thread *cur = thread_current (); 
   struct thread *donator = NULL;
   struct list_elem *elem = NULL;
   int max_priority = cur->init_priority;
   
+
+  /*자신의 priority는 바뀌었지만 비교할 donated priority가 없다면,
+    새로 바뀐 priority를 적용하고 return 한다. 
+    init_priority에는 초기에 설정된 priority가 저장되어 있어서
+    donated priority를 받납받고 원래 priority로 돌아갈 수 있다.*/
   if (list_empty (&cur->donations)) {
     cur->priority = cur->init_priority;
     return;
   }
-  
+  /* 이 루틴은 donated priority가 있는 경우에만 진입 가능함.
+     donated priority가 있는 경우, 새로 변경된 priority와
+     donated priority들을 비교하여 최대값을 취함.
+     사실 donations list는 우선순위에 따라 내림차순으로 정렬되어 있어
+     리스트 head가 가리키고 있는 element가 가장 큰 값이다. */
   elem = list_begin (&cur->donations);  
   donator = list_entry (elem, struct thread, donation_elem);
   if (max_priority < donator->priority) {
@@ -214,61 +241,67 @@ thread_tick (void)
     intr_yield_on_return ();
 }
 
-
-
+/* thread를 block상태로 만들고 원하는 timer ticks에 timer_interrupt에 의해
+   깨워질 수 있게 해주는sleep함수이다.
+   여기서 timer ticks는 OS부팅 이후 timer_interrupt가 호출될 때마다 카운트하는 값이다. 
+   timer tick 1번은 0.01초이다. (timer.h의 TIMER_FREQ 100 기준) */
 void thread_sleep (int64_t ticks) {
   struct thread *cur = thread_current ();
+  /* list 삽입이 일어나는 동안 race condition이 발생하지 않도록
+     interrupt를 disable해준다. */
   enum intr_level old_level = intr_disable ();
-  //struct thread *prev_t = NULL, *next_t = NULL;
+  /* idle thread는 block상태가 되지않게 예외처리를 해준다.
+     그 이외의 thread들에 대해서는 sleep을 수행하기 위해 block시킨다.*/
   if (cur != idle_thread)  {
-
-    //cur->status = THREAD_BLOCKED;
+    /* sleep_list에 깨워야할 ticks 정보를 담은 thread 구조체의 elem을 삽입하여
+       sleep list를 관리한다. 해당 리스트는 삽입시 정렬하지 않으며,
+       thread를 깨우기 위해 thread_awake() 에 의해 전체 순회가 된다. */
     cur->wakeup_tick = ticks; 
     list_push_back (&sleep_list, &cur->elem);
+    /* timer interrupt가 매번 thread_awake()를 호출하는 것이 아닌,
+       깨워야할 thread가 있을 때만 호출할 수 있도록 next_tick_to_awake 라는 전역변수를
+       sleep_list에서의 가장 작은 ticks를 가진 thread의 ticks값으로 바꿔준다. */
     update_next_tick_to_awake (ticks); 
     thread_block ();
-    /*  
-    for (elem = sleep_list.head.next; elem != &sleep_list.tail; elem = elem->next) { 
-      cur_t = list_entry (elem, struct thread, elem);
-      next_t = list_entry (elem->next, struct thread, elem);
-      if (prev_t->wakeup_tick <= cur->wakeup_tick )
-     */
+  
   }
   intr_set_level (old_level);
 }
 
+/*이 함수는 sleep_list에서 깨울 thread가 있을 때만 호출된다.
+  sleep_list를 순회하면서 깨울 thread는 ready상태로 만들어주고,
+  아직 깨울 때가 아닌 thread는 다른 스레드가 깨워지면서 바뀌어야할 
+  next_tick_to_awake 값을 갱신한다. */
 void thread_awake (int64_t ticks) {
   struct list_elem *elem = list_begin (&sleep_list);
   struct list_elem *cur_elem = NULL;
   struct thread *pcb = NULL;
-  /* for (elem = sleep_list.head.next; elem != &sleep_list.tail; elem = elem->next) {
-    pcb = list_entry (elem, struct thread, sleep_elem);
-    if (pcb->wakeup_tick <= ticks) {
-      list_remove (elem);
-      thread_unblock (pcb);
-    } else {
-      update_next_tick_to_awake (pcb->wakeup_tick);
-    }
-  } */
+  /* next_tick_to_awake 값이 새로 갱신될 수 있도록 충분히 큰 값으로 초기화 한다.
+     INT64_MAX 는 비교시 버그가 있어서 더 작은값으로 대체하였다.
+     set_next_tick_to_awake() 함수가 필요할 것 같지만, 당장은 이렇게 구현하였다.*/
+  next_tick_to_awake = INT32_MAX;
+    /* sleep_list를 처음부터 끝까지 순회한다. */
   while (elem != list_end (&sleep_list)) {
     pcb = list_entry (elem, struct thread, elem);
     cur_elem = elem; 
     elem = list_next (elem);
+    /* 현재 ticks보다 해당 pcb의 ticks가 작으면 해당 스레드를 깨운다. */
     if (pcb->wakeup_tick <= ticks) {
       list_remove (cur_elem);
       thread_unblock (pcb);
     } else {
+      /* 현재 ticks 보다 큰경우 next_tick_to_awake 를 갱신한다. */
       update_next_tick_to_awake (pcb->wakeup_tick);
     }
   }
 }
-
+/* next_tick_to_awake 값을 갱신해주는 함수이다. */
 void update_next_tick_to_awake (int64_t ticks) {
   if (ticks < next_tick_to_awake ) {
     next_tick_to_awake = ticks;
   }
 }
-
+/* next_tick_to_awake 값을 가져오는 함수이다. */
 int64_t get_next_tick_to_awake (void) {
   return next_tick_to_awake;  
 }

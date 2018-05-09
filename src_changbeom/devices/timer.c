@@ -95,6 +95,8 @@ timer_sleep (int64_t ticks)
   /* 기존의 busy waiting 방식의 timer_sleep 구현을 지움
   while (timer_elapsed (start) < ticks) 
     thread_yield ();  */
+  /* busy waiting 방식이 아닌, thread를 block시키는 방식으로 구현된
+     sleep함수를 호출한다.*/
   thread_sleep (start + ticks);
   
 }

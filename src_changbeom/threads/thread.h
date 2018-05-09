@@ -29,6 +29,8 @@ bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *a
 bool cmp_sem_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 
+static struct thread *idle_thread;
+static struct thread *initial_thread;
 
 /* A kernel thread or user process.
 
