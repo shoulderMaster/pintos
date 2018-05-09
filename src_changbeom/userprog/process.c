@@ -377,7 +377,7 @@ process_exit (void)
      STDIN, STDOUT이 있는 0번째, 1번째 FDT entry에는 따로 해제를 하지 않음 
      그리고 kernel의 main 프로세스와 idle process는 프로세스 초기화 할 때 FDT를 초기화 하지 않으므로
      double free가 발생하지 않게 이 루틴은 작동하지 않게 함.*/
-  if (!(cur == initial_thread || cur == idle_thread)) {
+  if (!(cur->tid == 1 || cur->tid == 2)) {
   
     for (i = 2; i < FILE_MAX; i++) {
       process_close_file (i);
