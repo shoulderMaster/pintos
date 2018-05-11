@@ -118,7 +118,7 @@ sema_up (struct semaphore *sema)
 
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters)) {
-    
+    /* 스레드들의 우선순위가 중간에 변경되었을 수도 있으니 다시 정렬한다. */
     list_sort (&sema->waiters, cmp_priority, NULL); 
     
     thread_unblock (list_entry (list_pop_front (&sema->waiters),
@@ -127,6 +127,7 @@ sema_up (struct semaphore *sema)
   }
 
   sema->value++;
+  /* 우선순위를 고려한 스케줄링을 한다. */
   test_max_priority ();
   intr_set_level (old_level);
 }
@@ -210,6 +211,7 @@ lock_acquire (struct lock *lock)
   
   if (lock->holder) {
     cur->wait_on_lock = lock;
+    /* lock을 점유한 thread에게 priority를 donate한다. */
     list_insert_ordered (&lock->holder->donations, &cur->donation_elem, cmp_priority, NULL);
     donate_priority ();
   }
@@ -275,12 +277,13 @@ struct semaphore_elem
     struct semaphore semaphore;         /* This semaphore. */
   };
 
+/* 각 semaphore_elem을 지역변수로 갖고있는 thread들의 우선순위를 비교하여
+   첫번째 인자가 더 클경우 true를 반환한다.*/
 bool cmp_sem_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
   struct semaphore_elem *sa = list_entry (a, struct semaphore_elem, elem);
   struct semaphore_elem *sb = list_entry (b, struct semaphore_elem, elem);
   struct thread *thread_a = (struct thread*)pg_round_down (sa);
   struct thread *thread_b = (struct thread*)pg_round_down (sb);
-  
   return thread_a->priority > thread_b->priority;
 }
 
@@ -331,6 +334,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   
   sema_init (&waiter.semaphore, 0);
   //list_push_back (&cond->waiters, &waiter.elem);
+  /* 기존의 FIFO로 구현된 대기 큐를 우선순위에 따라 삽입되도록 한다. */
   list_insert_ordered (&cond->waiters, &waiter.elem, cmp_sem_priority, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
@@ -353,6 +357,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (lock_held_by_current_thread (lock));
 
   if (!list_empty (&cond->waiters))
+    /* 대기 큐가 중간에 스레드의 우선순위가 바뀌어있을 수도 있으므로 재정렬한다. */
     list_sort (&cond->waiters, cmp_sem_priority, NULL);
     sema_up (&list_entry (list_pop_front (&cond->waiters),
                           struct semaphore_elem, elem)->semaphore);

@@ -397,6 +397,8 @@ thread_create (const char *name, int priority,
   list_push_back(&thread_current()->child_list, &t->child_elem);
   /* Add to run queue. */
   thread_unblock (t);
+  /* 우선순위를 고려한 스케줄링을 한다. 새로 생성한 스레드가
+     현재 스레드보다 우선순위가 높다면 CPU를 양보한다. */
   test_max_priority ();
   return tid;
 }
@@ -435,6 +437,7 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   //list_push_back (&ready_list, &t->elem);
+  /* 우선순위를 고려한 스케줄링을 위해 우선순위에 따라 ready queue에 정렬하여 삽입한다. */
   list_insert_ordered (&ready_list, &t->elem, cmp_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
@@ -446,6 +449,8 @@ void test_max_priority (void) {
   struct list_elem *cur = &thread_current ()->elem;
   struct list_elem *highest_priority_thread;
   
+  /* ready queue에 제일 우선순위가 높은 thread와 현재 스레드의 우선순위를 비교해서
+     현재스레드가 우선순위가 낮으면 cpu를 양보한다.*/
   if (!list_empty (&ready_list)) {
     highest_priority_thread = list_begin (&ready_list);
    
@@ -540,6 +545,7 @@ thread_yield (void)
   old_level = intr_disable ();
   /* if (cur != idle_thread) 
     list_push_back (&ready_list, &cur->elem); */
+  /* 기존 fifo로 구현된 readylist에 정렬삽입으로 재구현한다. */
   list_insert_ordered (&ready_list, &cur->elem, cmp_priority, NULL);  
   cur->status = THREAD_READY;
   schedule ();
@@ -569,11 +575,17 @@ thread_set_priority (int new_priority)
 {
   struct thread *cur = thread_current ();
   int old_priority = cur->priority;
+  /*초기 priority값도 변경해줘야한다. */
   cur->init_priority = new_priority;
+  /* donate 받은 pirority도 고려하여 priority를 재설정한다. */
   refresh_priority ();
+  /* 우선순위가 높아진 경우에는 새로 갱신된 priority기준으로
+     nested priority donation이 수행 되어져야한다.*/
   if (old_priority < cur->priority) {
     donate_priority ();
   }
+  /* 우선 순위가 변경되었으면 우선순위에 따라
+     재스케줄링을 해야한다. */
   test_max_priority (); 
 }
 
@@ -710,7 +722,7 @@ init_thread (struct thread *t, const char *name, int priority)
   /* process_exit () 에 의해 혹시 진짜 스레기 값이 file_close()되지 않을까 하여
      기본 초기 값을 NULL로 초기화 해줌. NULL값은 알아서 예외처리 됨. */
   t->run_file = NULL;
-
+  /* priority scheduling 관련 PCB멤버 초기화 */
   t->init_priority = priority;
   t->wait_on_lock = NULL;
   list_init (&t->donations);
