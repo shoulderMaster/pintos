@@ -129,16 +129,38 @@ void donate_priority (void) {
    현재 스레드의 donations list에서 빼준다.
    이는 donated priority가 락을 해제함으로서 반납되는 것을 의미한다. */
 void remove_with_lock (struct lock *lock) {
-  struct list_elem *elem = NULL;
-  struct list *lock_waiters = &lock->semaphore.waiters;
+  struct thread *donatee = thread_current (); 
+  struct list_elem *cur_elem = list_begin (&donatee->donations);
   struct thread *donator = NULL;
-  for (elem = list_begin (lock_waiters)
+
+ /*   for (elem = list_begin (lock_waiters)
       ; elem != list_end (lock_waiters); elem = list_next (elem)) {
     donator = list_entry (elem, struct thread, elem);
     list_remove (&donator->donation_elem);
+  }  */
+  while (cur_elem != list_end (&donatee->donations)) {
+    donator = list_entry (cur_elem, struct thread, donation_elem);
+    cur_elem = list_next (cur_elem); 
+    if (donator->wait_on_lock == lock) {
+      list_remove (&donator->donation_elem);
+    }
   }
-}
-
+} 
+/* void remove_with_lock(struct lock *lock)
+{
+  struct list_elem *e = list_begin(&thread_current()->donations);
+  struct list_elem *next;
+  while (e != list_end(&thread_current()->donations))
+    {
+      struct thread *t = list_entry(e, struct thread, donation_elem);
+      next = list_next(e);
+      if (t->wait_on_lock == lock)
+	{
+	  list_remove(e);
+	}
+      e = next;
+    }
+} */
 /*어떤 스레드가 우선순위가 새로 바뀌거나, lock을 반환하고 donated priority를 반납하면서
   우선순위가 변경될 때, 변경된 우선순위와 다른 lock을 점유하면서 다른 스레드들이 해당 lock을
   대기하면서 donate해준  priority들과 비교하여 가장 높은 priority로 바꾸는 작업을 함.  */
