@@ -1,6 +1,7 @@
+#include "vm/page.c"
 
 
-
+void vm_init (struct hash *vm); 
 
 struct vm_entry{
   uint8_t type;             /*  VM_BIN, VM_FILE, VM_ANON의 타입 */
@@ -22,4 +23,4 @@ struct vm_entry{
   
   /*  ‘vm_entry들을 위한 자료구조’ 부분에서 다룰 예정 */
   struct hash_elem elem;        /*  해시 테이블 Element */
-}
+}; 
