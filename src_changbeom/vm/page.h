@@ -1,5 +1,8 @@
 #include "vm/page.c"
 
+#define VM_BIN  0
+#define VM_FILE 1
+#define VM_ANON 2
 
 void vm_init (struct hash *vm); 
 void vm_destory (struct hash *vm);
