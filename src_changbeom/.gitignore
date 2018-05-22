@@ -4,5 +4,5 @@ TAGS
 tags
 build/
 *.o
-*.swp
+*.sw*
 *~
