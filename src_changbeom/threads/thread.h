@@ -5,7 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "synch.h"
-
+#include "lib/kernel/hash.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -148,7 +148,8 @@ struct thread
     struct list donations;
 
     struct list_elem donation_elem;
-
+ 
+    struct hash vm;  /* 스레드가 가진 가상 주소 공간을 관리하는 해시테이블 */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
