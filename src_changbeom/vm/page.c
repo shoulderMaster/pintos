@@ -8,7 +8,8 @@ void vm_init (struct hash *vm);
 bool insert_vme (struct hash *vm, struct vm_entry *vme);
 bool delete_vme (struct hash *vm, struct vm_entry *vme);
 struct vm_entry *find_vme (void *vaddr); 
-  
+void vm_destory_func (struct hash_elem *e, void *aux UNUSED);
+void vm_destory (struct hash *vm);
 
 void vm_init (struct hash *vm) {
 
@@ -66,3 +67,24 @@ struct vm_entry *find_vme (void *vaddr) {
   return hash_entry (elem, struct vm_entry, elem); 
 }
 
+void vm_destory (struct hash *vm) {
+  /* hash_destroy()로 해시테이블의 버킷리스트와 vm_entry들을 제거 */
+  hash_destroy (vm, vm_destory_func);
+}
+
+void vm_destory_func (struct hash_elem *e, void *aux UNUSED) {
+  
+  /*  Get hash element (hash_entry() 사용) */
+  struct vm_entry *vme = hash_entry (e, struct vm_entry, elem);
+
+  /*  load가 되어 있는 page의 vm_entry인 경우
+   page의 할당 해제 및 page mapping 해제 (palloc_free_page()와
+   pagedir_clear_page() 사용) */
+  if (vme->is_loaded) {
+    palloc_free_page (vme->vaddr);
+    pagedir_clear_page (thread_current ()->pagedir, vme->vaddr);
+  }
+
+  /*  vm_entry 객체 할당 해제 */
+  delete_vme (vme);
+}
