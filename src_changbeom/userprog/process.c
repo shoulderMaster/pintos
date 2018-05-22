@@ -19,6 +19,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "filesys/file.h"
+#include "vm/page.h"
 
 /* 한 프로세스에 있는 FDT의 entry 최대 개수
    multi-oom 테스트 케이스가 126개까지 fd를 열어봄 */
@@ -133,6 +134,9 @@ start_process (void *file_name_)
      내부적으로 malloc을 사용하여 메모리 동적 할당을 하기 때문에
      사용을 마치고 나면 반드시 리턴 값에 대해 free를 해줘야함.  */
   argv = _get_argv(file_name);
+
+  /* vm_init() 함수를 이용하여 해시테이블 초기화 */
+  vm_init (&thread_current ()->vm); 
   
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
