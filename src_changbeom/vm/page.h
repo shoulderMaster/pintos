@@ -2,6 +2,7 @@
 
 
 void vm_init (struct hash *vm); 
+void vm_destory (struct hash *vm);
 
 struct vm_entry{
   uint8_t type;             /*  VM_BIN, VM_FILE, VM_ANON의 타입 */

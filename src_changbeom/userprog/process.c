@@ -398,6 +398,8 @@ process_exit (void)
      물론 이 ELF로 아직 실행 중인 다른 프로세스가 있다면 그 프로세스들이 모두 종료될 때까지 기다려야함 */
   file_close (cur->run_file);
 
+  /* vm_entry들을 제거하는 함수 추가 */
+  vm_destory (&cur->vm);
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
