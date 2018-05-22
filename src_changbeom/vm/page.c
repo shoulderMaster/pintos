@@ -7,6 +7,7 @@ static unsigned vm_hash_func (const struct hash_elem *e, void *aux);
 void vm_init (struct hash *vm); 
 bool insert_vme (struct hash *vm, struct vm_entry *vme);
 bool delete_vme (struct hash *vm, struct vm_entry *vme);
+struct vm_entry *find_vme (void *vaddr); 
   
 
 void vm_init (struct hash *vm) {
@@ -45,3 +46,23 @@ bool delete_vme (struct hash *vm, struct vm_entry *vme) {
   /* hash_delete() 함수를 이용하여 vm_entry를 해시 테이블에서 제거 */
   return !!hash_delete (vm, &vme->elem);
 }
+
+struct vm_entry *find_vme (void *vaddr) {
+  struct hash *vm = &thread_current ()->vm;
+  struct vm_entry vme;
+
+  /*  pg_round_down()으로 vaddr의 페이지 번호를 얻음 */
+  vme.vaddr = pg_round_down (vaddr); 
+  
+  /*  hash_find() 함수를 사용해서 hash_elem 구조체 얻음 */
+  struct hash_elem *elem = hash_find (vm, &vme.elem);
+  
+  /*  만약 존재하지 않는다면 NULL 리턴 */
+  if (!elem) {
+    return NULL;
+  }
+
+  /* 존재 하면  hash_entry()로 해당 hash_elem의 vm_entry 구조체 리턴 */
+  return hash_entry (elem, struct vm_entry, elem); 
+}
+
