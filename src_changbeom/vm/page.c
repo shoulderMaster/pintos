@@ -5,8 +5,8 @@
 static bool vm_less_func (const struct hash_elem *a, const struct hash_elem *b); 
 static unsigned vm_hash_func (const struct hash_elem *e, void *aux);
 void vm_init (struct hash *vm); 
-
-
+bool insert_vme (struct hash *vm, struct vm_entry *vme);
+bool delete_vme (struct hash *vm, struct vm_entry *vme);
   
 
 void vm_init (struct hash *vm) {
@@ -36,4 +36,12 @@ static bool vm_less_func (const struct hash_elem *a, const struct hash_elem *b) 
   return ve_a->vaddr < ve_b->vaddr;
 }
 
+bool insert_vme (struct hash *vm, struct vm_entry *vme) {
+  /* hash_insert() 함수 이용하여 vm_entry를 해시 테이블에 삽입 */
+  return !hash_insert (vm, &vme->elem);
+}
 
+bool delete_vme (struct hash *vm, struct vm_entry *vme) {
+  /* hash_delete() 함수를 이용하여 vm_entry를 해시 테이블에서 제거 */
+  return !!hash_delete (vm, &vme->elem);
+}
