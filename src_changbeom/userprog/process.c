@@ -20,6 +20,7 @@
 #include "threads/vaddr.h"
 #include "filesys/file.h"
 #include "vm/page.h"
+#include "lib/kernel/hash.h"
 
 /* 한 프로세스에 있는 FDT의 entry 최대 개수
    multi-oom 테스트 케이스가 126개까지 fd를 열어봄 */
@@ -772,6 +773,7 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
+  struct vm_entry *vme = NULL;
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
@@ -782,6 +784,20 @@ setup_stack (void **esp)
       else
         palloc_free_page (kpage);
     }
+  /* vm_entry 생성 */
+  vme = (struct vm_entry*)malloc (sizeof (struct vm_entry));
+  if (!vme)
+    return false;
+
+  /* vm_entry 멤버들 설정 */
+  vme->type = VM_ANON;
+  vme->writable = true;
+  vme->vaddr = kpage;
+  
+  
+  /* insert_vme ()로 해시테이블 추가 */
+  hash_insert (thread_current ()->vm, vme);
+
   return success;
 }
 
