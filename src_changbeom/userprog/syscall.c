@@ -97,25 +97,25 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_CREATE :
         get_argument (esp, arg, 2);
-        check_address (arg[0]);
+        check_valid_string (arg[0], esp);
         f->eax = create ((const char*)arg[0], (unsigned)arg[1]);
         break;
 
     case SYS_REMOVE :
         get_argument (esp, arg, 1);
-        check_address (arg[0]);
+        check_valid_string (arg[0], esp);
         f->eax = remove ((const char*)arg[0]);
         break;
 
     case SYS_EXEC :
         get_argument (esp, arg, 1);
-        check_address ((void*)arg[0]);
+        check_valid_string ((void*)arg[0], esp);
         f->eax = exec ((const char*)arg[0]);
         break;
 
      case SYS_OPEN :
         get_argument (esp, arg, 1);
-        check_address ((void*)arg[0]);
+        check_valid_string ((void*)arg[0], esp);
         f->eax = open ((const char*)arg[0]);
         break;
 
@@ -424,4 +424,3 @@ pid_t exec (const *cmd_line)
   return child_pid;
 
 }
-
