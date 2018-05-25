@@ -4,6 +4,8 @@
 #define VM_FILE 1
 #define VM_ANON 2
 
+void check_valid_buffer (void *buffer, unsigned size, void *esp, bool to_write);
+void check_valid_string (const void *str, void *esp);
 void vm_init (struct hash *vm); 
 void vm_destory (struct hash *vm);
 
