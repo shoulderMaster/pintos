@@ -4,6 +4,7 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "userprog/process.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -126,6 +127,7 @@ page_fault (struct intr_frame *f)
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
+  struct vm_entry *vme= NULL;
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -147,17 +149,16 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
-  
-  //임시로 넣어놓음
-  exit(-1);
-  /* To implement virtual memory, delete the rest of the function
-     body, and replace it with code that brings in the page to
-     which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-  kill (f);
+
+  /* read only 페이지에 대한 접근이 아닐 경우 (not_present 참조)*/
+  if (not_present) {
+    /* 페이지 폴트가 일어난 주소에 대한 vm_entry 구조체 탐색 */
+    vme = find_vme (fault_addr) ;
+
+    /* vm_entry를 인자로 넘겨주며 handle_mm_fault() 호출 */
+    handle_mm_fault (vme);
+  }
+  /* 제대로 파일이 물리 메모리에 로드 되고 맵핑 됬는지 검사 */ 
+  check_address (fault_addr);
 }
 
