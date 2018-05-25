@@ -5,8 +5,6 @@
 #include "threads/thread.h"
 #include "lib/string.h"
 #include "vm/page.h"
-#include "threads/vaddr.h"
-
 /* 보다 직관적인 check_address() 를 작성하기 위해 
    각 메모리 영역 시작 주소 값을 USER_START, KERNEL_START로 정의함. */
 #define USER_START      0x08048000
@@ -19,7 +17,6 @@
 typedef int pid_t;
 static void syscall_handler (struct intr_frame *);
 struct vm_entry *check_address (void *addr);
-void check_vaild_buffer (void *buffer, unsigned size, void *esp, bool to_write);
 void get_argument (void *esp, int *arg, int count);
 void halt ();
 void exit (int status);
@@ -129,14 +126,13 @@ syscall_handler (struct intr_frame *f UNUSED)
 
      case SYS_READ :
         get_argument (esp, arg, 3);
-        //check_address ((void*)arg[1]);
-        check_vaild_buffer ((void*)arg[1], (unsigned)arg[2], esp, false);
+        check_valid_buffer ((void*)arg[1], (unsigned)arg[2], esp, true);
         f->eax = read ((int)arg[0], (void*)arg[1], (unsigned)arg[2]);
         break;
 
      case SYS_WRITE :
         get_argument (esp, arg, 3);
-        check_address ((void*)arg[1]);
+        check_valid_string ((const void*)arg[1], esp);
         f->eax = write ((int)arg[0], (void*)arg[1], (unsigned)arg[2]);
         break;
 
@@ -347,42 +343,6 @@ struct vm_entry *check_address (void *addr)
 
 }
 
-
-void check_vaild_buffer (void *buffer, unsigned size,
-                         void *esp, bool to_write) {
-  void *from = NULL, *to = NULL;
-  void *vaddr = NULL;
-  struct vm_entry *vme = NULL;
-  unsigned number_of_page, i;
-
-  /*  인자로 받은 buffer부터 buffer + size까지의 크기가 한 페이지의
-      크기를 넘을 수도 있음 */
-  /* 검사해야할 페이지 개수를 구함 */
-  from = (unsigned)pg_round_down (buffer);
-  to = (unsigned)pg_round_down ((unsigned)buffer + size - 1);
-  num_of_page = ((to - from) >> PGBITS) + 1; 
-  
-  for (i = 0; i < num_of_page; i++) {
-    /*  check_address를 이용해서 주소의 유저영역 여부를 검사함과 동시
-        에 vm_entry 구조체를 얻음 */ 
-    if (i != num_of_page - 1) {
-      vaddr = (unsigned)buffer + (PGSIZE * i);
-    } else {
-      vaddr = (unsigned)buffer + size - 1; 
-    }
-    vme = check_address (vaddr);
-
-    /*  해당 주소에 대한 vm_entry 존재여부와 vm_entry의 writable 멤
-        버가 true인지 검사 */
-    if (vme == NULL ||
-        (to_write && vme->writable == false)) {
-      exit (-1);
-    }
-  }
-  /*  위 내용을 buffer 부터 buffer + size까지의 주소에 포함되는
-      vm_entry들에 대해 적용 */
-}
-
 /* 유저모드 스택에 저장된 시스템 콜 함수에 대한 인자를 커널 스택에 복사한다.
    esp 위치에 system call number가 저장되어 있고, esp+4 위치부터 인자들이 저장되어 있다. */
 void get_argument (void *esp, int *arg, int count)
@@ -464,8 +424,4 @@ pid_t exec (const *cmd_line)
   return child_pid;
 
 }
-
-
-
-
 

@@ -2,6 +2,8 @@
 #include "lib/kernel/hash.h"
 
 
+void check_valid_buffer (void *buffer, unsigned size, void *esp, bool to_write);
+void check_valid_string (const void *str, void *esp);
 static bool vm_less_func (const struct hash_elem *a, const struct hash_elem *b); 
 static unsigned vm_hash_func (const struct hash_elem *e, void *aux);
 void vm_init (struct hash *vm); 
@@ -88,3 +90,45 @@ void vm_destory_func (struct hash_elem *e, void *aux UNUSED) {
   /*  vm_entry 객체 할당 해제 */
   delete_vme (vme);
 }
+
+void check_valid_buffer (void *buffer, unsigned size,
+                         void *esp, bool to_write) {
+  void *from = NULL, *to = NULL;
+  void *vaddr = NULL;
+  struct vm_entry *vme = NULL;
+  unsigned number_of_page, i;
+
+  /*  인자로 받은 buffer부터 buffer + size까지의 크기가 한 페이지의
+      크기를 넘을 수도 있음 */
+  /* 검사해야할 페이지 개수를 구함 */
+  from = (unsigned)pg_round_down (buffer);
+  to = (unsigned)pg_round_down ((unsigned)buffer + size - 1);
+  num_of_page = ((to - from) >> PGBITS) + 1; 
+  
+  for (i = 0; i < num_of_page; i++) {
+    /*  check_address를 이용해서 주소의 유저영역 여부를 검사함과 동시
+        에 vm_entry 구조체를 얻음 */ 
+    if (i != num_of_page - 1) {
+      vaddr = (unsigned)buffer + (PGSIZE * i);
+    } else {
+      vaddr = (unsigned)buffer + size - 1; 
+    }
+    vme = check_address (vaddr);
+
+    /*  해당 주소에 대한 vm_entry 존재여부와 vm_entry의 writable 멤
+        버가 true인지 검사 */
+    // only if to_write is true, check writable
+    if (vme == NULL ||
+        (to_write == true && vme->writable == false)) {
+      exit (-1);
+    }
+  }
+  /*  위 내용을 buffer 부터 buffer + size까지의 주소에 포함되는
+      vm_entry들에 대해 적용 */
+}
+
+void check_valid_string (const void *str, void *esp) {
+  /* check virtual address without checking writeability */
+  check_valid_buffer (str, strlen (str) + 1, esp, false);
+}
+
