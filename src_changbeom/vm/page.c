@@ -1,20 +1,15 @@
-#include "vm/page.h"
 #include "threads/vaddr.h"
 #include "lib/kernel/hash.h"
 #include "filesys/file.h"
 #include "threads/thread.h"
+#include "vm/page.h"
 
-void check_valid_buffer (void *buffer, unsigned size, void *esp, bool to_write);
-void check_valid_string (const void *str, void *esp);
 static bool vm_less_func (const struct hash_elem *a, const struct hash_elem *b); 
 static unsigned vm_hash_func (const struct hash_elem *e, void *aux);
-void vm_init (struct hash *vm); 
 bool insert_vme (struct hash *vm, struct vm_entry *vme);
 bool delete_vme (struct hash *vm, struct vm_entry *vme);
 struct vm_entry *find_vme (void *vaddr); 
 void vm_destroy_func (struct hash_elem *e, void *aux);
-void vm_destroy (struct hash *vm);
-//bool load_file (void *kaddr, struct vm_entry *vme);
 
 bool load_file (void *kaddr, struct vm_entry *vme) {
   /* Using file_read_at()*/
@@ -148,6 +143,4 @@ void check_valid_string (const void *str, void *esp) {
   /* check virtual address without checking writeability */
   check_valid_buffer (str, strlen (str) + 1, esp, false);
 }
-
-
 

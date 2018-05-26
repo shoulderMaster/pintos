@@ -17,9 +17,9 @@
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
+#include "vm/page.c"
 #include "threads/vaddr.h"
 #include "filesys/file.h"
-#include "vm/page.h"
 #include "lib/kernel/hash.h"
 
 /* 한 프로세스에 있는 FDT의 entry 최대 개수
@@ -37,6 +37,31 @@ void process_close_file (int fd);
 struct file * process_get_file (int fd);
 int process_add_file (struct file *f);
 bool handle_mm_fault (struct vm_entry *vme);
+static bool install_page (void *upage, void *kpage, bool writable);
+
+bool handle_mm_fault (struct vm_entry *vme) {
+  /* palloc_get_page()를 이용해서 물리메모리 할당 */
+  /* page는 user pool에서 가져와야 한다. */
+  void *kaddr = palloc_get_page (PAL_USER|PAL_ZERO);
+  ASSERT (kaddr != NULL);
+  /* switch문으로 vm_entry의 타입별 처리 (VM_BIN외의 나머지 타입은 mmf
+     와 swapping에서 다룸*/
+  switch (vme->type) {
+    /* VM_BIN일 경우 load_file()함수를 이용해서 물리메모리에 로드 */
+    /* install_page를 이용해서 물리페이지와 가상페이지 맵핑 */
+    case VM_BIN :
+      /* load_file(), install_page() 수행 중 false 반환 되는 경우 예외처리 */
+      if (!(load_file (kaddr, vme) &&
+            install_page (vme->vaddr, kaddr, vme->writable)))  {
+        palloc_free_page (kaddr);
+        return false;
+      }
+      vme->is_loaded = true;
+      break;
+  }
+  /* 로드 성공 여부 반환 */
+  return true;
+}
 
 /* filesys_open() 따위에 열려서 넘겨진 파일 객체 포인터를 인자로 받아서
    해당 파일 객체를 해당 프로세스의 FDT에 추가해주는 함수
@@ -741,14 +766,14 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
            
       /*  vm_entry 생성 (malloc 사용) */
       struct vm_entry *vme = (struct vm_entry*)malloc (sizeof (struct vm_entry));
-      memset (vme, NULL, sizeof (struct vm_entry));
+      memset (vme, 0x00, sizeof (struct vm_entry));
       if (vme == NULL) 
         return false;
       
       /*  vm_entry 멤버들 설정, 가상페이지가 요구될 때 읽어야할 파일의 오프
        셋과 사이즈, 마지막에 패딩할 제로 바이트 등등 */
       vme->vaddr = upage;
-      vme->type = VM_FILE;
+      vme->type = VM_BIN;
       vme->writable = writable;
       vme->is_loaded = false;
       vme->file = file;
@@ -758,7 +783,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       
 
       /*  insert_vme() 함수를 사용해서 생성한 vm_entry를 해시테이블에 추가 */
-      insert_vme (thread_current ()->vm, vme);
+      insert_vme (&thread_current ()->vm, vme);
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -795,35 +820,12 @@ setup_stack (void **esp)
   vme->type = VM_ANON;
   vme->writable = true;
   vme->vaddr = ((uint8_t *) PHYS_BASE) - PGSIZE;
-  
-  
+  vme->is_loaded = true;
+
   /* insert_vme ()로 해시테이블 추가 */
-  hash_insert (&thread_current ()->vm, vme);
+  hash_insert (&thread_current ()->vm, &vme->elem);
 
   return success;
-}
-
-bool handle_mm_fault (struct vm_entry *vme) {
-  /* palloc_get_page()를 이용해서 물리메모리 할당 */
-  /* page는 user pool에서 가져와야 한다. */
-  void *kaddr = palloc_get_page (PAL_USER|PAL_ZERO);
-  ASSERT (kaddr != NULL);
-  /* switch문으로 vm_entry의 타입별 처리 (VM_BIN외의 나머지 타입은 mmf
-     와 swapping에서 다룸*/
-  switch (vme->type) {
-    /* VM_BIN일 경우 load_file()함수를 이용해서 물리메모리에 로드 */
-    /* install_page를 이용해서 물리페이지와 가상페이지 맵핑 */
-    case VM_BIN :
-      /* load_file(), install_page() 수행 중 false 반환 되는 경우 예외처리 */
-      if (!(load_file (kaddr, vme) && install_page (vme->vaddr, kaddr, vme->writable)))  {
-        palloc_free_page (kaddr);
-        return false;
-      }
-      vme->is_loaded = true;
-      break;
-  }
-  /* 로드 성공 여부 반환 */
-  return true;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
@@ -845,3 +847,5 @@ install_page (void *upage, void *kpage, bool writable)
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
+
+
