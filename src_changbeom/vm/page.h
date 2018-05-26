@@ -8,6 +8,7 @@ void check_valid_buffer (void *buffer, unsigned size, void *esp, bool to_write);
 void check_valid_string (const void *str, void *esp);
 void vm_init (struct hash *vm); 
 void vm_destory (struct hash *vm);
+bool load_file (void *kaddr, struct vm_entry *vme);
 
 struct vm_entry{
   uint8_t type;             /*  VM_BIN, VM_FILE, VM_ANON의 타입 */

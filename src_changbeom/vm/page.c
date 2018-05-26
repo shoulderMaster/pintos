@@ -1,7 +1,7 @@
 #include "vm/page.h"
 #include "lib/kernel/hash.h"
 
-
+bool load_file (void *kaddr, struct vm_entry *vme);
 void check_valid_buffer (void *buffer, unsigned size, void *esp, bool to_write);
 void check_valid_string (const void *str, void *esp);
 static bool vm_less_func (const struct hash_elem *a, const struct hash_elem *b); 
@@ -132,3 +132,17 @@ void check_valid_string (const void *str, void *esp) {
   check_valid_buffer (str, strlen (str) + 1, esp, false);
 }
 
+
+bool load_file (void *kaddr, struct vm_entry *vme) {
+  /* Using file_read_at()*/
+  /* file_read_at으로 물리페이지에 read_bytes만큼 데이터를 씀*/
+  /* file_read_at 여부 반환 */
+  if (file_read_at (vme->file, kaddr, vme->read_bytes, vme->offset) != vme->read_bytes)
+    return false;
+
+  /* zero_bytes만큼 남는 부분을‘0’으로 패딩 */
+  memset (kaddr + vme->read_bytes, 0, vme->zero_bytes);
+  
+  /*정상적으로 file을 메모리에 loading 하면 true 리턴*/
+  return true;
+}
