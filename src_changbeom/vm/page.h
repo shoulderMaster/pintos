@@ -1,16 +1,11 @@
-#include "vm/page.c"
+#include <stdlib.h>
+#include <hash.h>
 
 #define VM_BIN  0
 #define VM_FILE 1
 #define VM_ANON 2
 
-void check_valid_buffer (void *buffer, unsigned size, void *esp, bool to_write);
-void check_valid_string (const void *str, void *esp);
-void vm_init (struct hash *vm); 
-void vm_destory (struct hash *vm);
-bool load_file (void *kaddr, struct vm_entry *vme);
-
-struct vm_entry{
+struct vm_entry {
   uint8_t type;             /*  VM_BIN, VM_FILE, VM_ANON의 타입 */
   void *vaddr;              /*  vm_entry의 가상페이지 번호 */
   bool writable;            /*  True일 경우 해당 주소에 write 가능
@@ -31,3 +26,11 @@ struct vm_entry{
   /*  ‘vm_entry들을 위한 자료구조’ 부분에서 다룰 예정 */
   struct hash_elem elem;        /*  해시 테이블 Element */
 }; 
+
+
+bool load_file (void *kaddr, struct vm_entry *vme);
+void check_valid_buffer (void *buffer, unsigned size, void *esp, bool to_write);
+void check_valid_string (const void *str, void *esp);
+void vm_init (struct hash *vm); 
+void vm_destory (struct hash *vm);
+

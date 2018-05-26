@@ -1,10 +1,11 @@
+#include "vm/page.h"
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "lib/string.h"
-#include "vm/page.h"
+
 /* 보다 직관적인 check_address() 를 작성하기 위해 
    각 메모리 영역 시작 주소 값을 USER_START, KERNEL_START로 정의함. */
 #define USER_START      0x08048000

@@ -1,7 +1,9 @@
 #include "vm/page.h"
+#include "threads/vaddr.h"
 #include "lib/kernel/hash.h"
+#include "filesys/file.h"
+#include "threads/thread.h"
 
-bool load_file (void *kaddr, struct vm_entry *vme);
 void check_valid_buffer (void *buffer, unsigned size, void *esp, bool to_write);
 void check_valid_string (const void *str, void *esp);
 static bool vm_less_func (const struct hash_elem *a, const struct hash_elem *b); 
@@ -10,8 +12,23 @@ void vm_init (struct hash *vm);
 bool insert_vme (struct hash *vm, struct vm_entry *vme);
 bool delete_vme (struct hash *vm, struct vm_entry *vme);
 struct vm_entry *find_vme (void *vaddr); 
-void vm_destory_func (struct hash_elem *e, void *aux UNUSED);
-void vm_destory (struct hash *vm);
+void vm_destroy_func (struct hash_elem *e, void *aux);
+void vm_destroy (struct hash *vm);
+//bool load_file (void *kaddr, struct vm_entry *vme);
+
+bool load_file (void *kaddr, struct vm_entry *vme) {
+  /* Using file_read_at()*/
+  /* file_read_at으로 물리페이지에 read_bytes만큼 데이터를 씀*/
+  /* file_read_at 여부 반환 */
+  if (file_read_at (vme->file, kaddr, vme->read_bytes, vme->offset) != vme->read_bytes)
+    return false;
+
+  /* zero_bytes만큼 남는 부분을‘0’으로 패딩 */
+  memset (kaddr + vme->read_bytes, 0, vme->zero_bytes);
+  
+  /*정상적으로 file을 메모리에 loading 하면 true 리턴*/
+  return true;
+}
 
 void vm_init (struct hash *vm) {
 
@@ -69,12 +86,12 @@ struct vm_entry *find_vme (void *vaddr) {
   return hash_entry (elem, struct vm_entry, elem); 
 }
 
-void vm_destory (struct hash *vm) {
+void vm_destroy (struct hash *vm) {
   /* hash_destroy()로 해시테이블의 버킷리스트와 vm_entry들을 제거 */
-  hash_destroy (vm, vm_destory_func);
+  hash_destroy (vm, vm_destroy_func);
 }
 
-void vm_destory_func (struct hash_elem *e, void *aux UNUSED) {
+void vm_destroy_func (struct hash_elem *e, void *aux) {
   
   /*  Get hash element (hash_entry() 사용) */
   struct vm_entry *vme = hash_entry (e, struct vm_entry, elem);
@@ -88,7 +105,7 @@ void vm_destory_func (struct hash_elem *e, void *aux UNUSED) {
   }
 
   /*  vm_entry 객체 할당 해제 */
-  delete_vme (vme);
+  delete_vme (&thread_current ()->vm, vme);
 }
 
 void check_valid_buffer (void *buffer, unsigned size,
@@ -103,12 +120,12 @@ void check_valid_buffer (void *buffer, unsigned size,
   /* 검사해야할 페이지 개수를 구함 */
   from = (unsigned)pg_round_down (buffer);
   to = (unsigned)pg_round_down ((unsigned)buffer + size - 1);
-  num_of_page = ((to - from) >> PGBITS) + 1; 
+  number_of_page = ((to - from) >> PGBITS) + 1; 
   
-  for (i = 0; i < num_of_page; i++) {
+  for (i = 0; i < number_of_page; i++) {
     /*  check_address를 이용해서 주소의 유저영역 여부를 검사함과 동시
         에 vm_entry 구조체를 얻음 */ 
-    if (i != num_of_page - 1) {
+    if (i != number_of_page - 1) {
       vaddr = (unsigned)buffer + (PGSIZE * i);
     } else {
       vaddr = (unsigned)buffer + size - 1; 
@@ -133,16 +150,4 @@ void check_valid_string (const void *str, void *esp) {
 }
 
 
-bool load_file (void *kaddr, struct vm_entry *vme) {
-  /* Using file_read_at()*/
-  /* file_read_at으로 물리페이지에 read_bytes만큼 데이터를 씀*/
-  /* file_read_at 여부 반환 */
-  if (file_read_at (vme->file, kaddr, vme->read_bytes, vme->offset) != vme->read_bytes)
-    return false;
 
-  /* zero_bytes만큼 남는 부분을‘0’으로 패딩 */
-  memset (kaddr + vme->read_bytes, 0, vme->zero_bytes);
-  
-  /*정상적으로 file을 메모리에 loading 하면 true 리턴*/
-  return true;
-}

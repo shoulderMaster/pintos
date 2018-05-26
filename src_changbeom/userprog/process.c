@@ -401,7 +401,7 @@ process_exit (void)
   file_close (cur->run_file);
 
   /* vm_entry들을 제거하는 함수 추가 */
-  vm_destory (&cur->vm);
+  vm_destroy (&cur->vm);
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -798,7 +798,7 @@ setup_stack (void **esp)
   
   
   /* insert_vme ()로 해시테이블 추가 */
-  hash_insert (thread_current ()->vm, vme);
+  hash_insert (&thread_current ()->vm, vme);
 
   return success;
 }
@@ -817,7 +817,7 @@ bool handle_mm_fault (struct vm_entry *vme) {
       /* load_file(), install_page() 수행 중 false 반환 되는 경우 예외처리 */
       if (!(load_file (kaddr, vme) && install_page (vme->vaddr, kaddr, vme->writable)))  {
         palloc_free_page (kaddr);
-        return false
+        return false;
       }
       vme->is_loaded = true;
       break;
