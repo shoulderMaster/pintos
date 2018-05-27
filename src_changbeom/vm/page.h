@@ -10,6 +10,13 @@
 #define VM_FILE 1
 #define VM_ANON 2
 
+struct mmap_file {
+  int mapid;
+  struct file* file;
+  struct list_elem elem;
+  struct list vme_list;
+};
+
 struct vm_entry {
   uint8_t type;             /*  VM_BIN, VM_FILE, VM_ANON의 타입 */
   void *vaddr;              /*  vm_entry의 가상페이지 번호 */
