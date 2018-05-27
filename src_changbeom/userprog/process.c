@@ -50,6 +50,7 @@ void do_munmap (struct mmap_file *mmap_file) {
     if (vme->is_loaded &&
         pagedir_is_dirty (cur->pagedir, vme->vaddr)) {
       file_write_at (vme->file, vme->vaddr, vme->read_bytes, vme->offset);
+      pagedir_clear_page (cur->pagedir, vme->vaddr);
       palloc_free_page (pagedir_get_page (cur->pagedir, vme->vaddr));
     }
     
