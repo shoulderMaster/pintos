@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <round.h>
 #include <stdio.h>
+#include <list.h>
 #include <stdlib.h>
 #include <string.h>
 #include "userprog/gdt.h"
@@ -34,6 +35,39 @@ struct file * process_get_file (int fd);
 int process_add_file (struct file *f);
 bool handle_mm_fault (struct vm_entry *vme);
 static bool install_page (void *upage, void *kpage, bool writable);
+
+void do_munmap (struct mmap_file *mmap_file) {
+  struct thread *cur = thread_current ();
+  struct list_elem *vm_elem = NULL;
+
+  /* mmap_list를 순회하여 vme를 해제함 */ 
+  vm_elem = list_begin (&mmap_file->vme_list);
+  while (vm_elem != list_end (&mmap_file->vme_list)) {
+    struct list_elem *next_elem = list_next (vm_elem);
+
+    /* vme가 가리키는 가상주소에 대한 물리 페이지가 존재하고, dirty하면 write-back을 함 */
+    struct vm_entry *vme = list_entry (vm_elem, struct vm_entry, mmap_elem);
+    if (vme->is_loaded &&
+        pagedir_is_dirty (cur->pagedir, vme->vaddr)) {
+      file_write_at (vme->file, vme->vaddr, vme->read_bytes, vme->offset);
+      palloc_free_page (pagedir_get_page (cur->pagedir, vme->vaddr));
+    }
+    
+    /* vm_elem 을 mmap_list에서 제거한다 */
+    list_remove (vm_elem);
+    /* hash table에서 vme를 제거한다 */
+    delete_vme (&cur->vm, vme);
+    /* vme에 할당된 동적 메모리를 해제한다 */
+    free (vme);
+
+    vm_elem = next_elem;
+  }
+
+  /* mmap_list에서 mmap_file을 제거한다 */
+  list_remove (&mmap_file->elem);
+  /* mmap_file에 할당된 동적 메모리를 해제한다 */
+  free (mmap_file);
+}
 
 bool handle_mm_fault (struct vm_entry *vme) {
   /* palloc_get_page()를 이용해서 물리메모리 할당 */
