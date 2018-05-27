@@ -80,8 +80,10 @@ mapid_t mmap (int fd, void *addr) {
     return -1;
   }
   
-  /* addr 은 page 크기 단위여야함 */
-  if (!(addr != NULL && pg_ofs (addr) == 0)) {
+  /* addr 은 page 크기 단위여야함. 그리고 유저 메모리 영역이어야함*/
+  if (!(addr != NULL &&
+        pg_ofs (addr) == 0 &&
+        is_user_vaddr (addr))) {
     return -1;
   }
   
@@ -245,7 +247,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 
      case SYS_MMAP : 
         get_argument (esp, arg, 2);
-        check_address (arg[1]);
         f->eax = mmap ((int)arg[0], (void*)arg[1]);
         break;
 
