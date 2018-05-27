@@ -22,10 +22,6 @@
 #include "filesys/file.h"
 #include "lib/kernel/hash.h"
 
-/* 한 프로세스에 있는 FDT의 entry 최대 개수
-   multi-oom 테스트 케이스가 126개까지 fd를 열어봄 */
-#define FILE_MAX 192
-
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 int _get_argc(char* file_name);
