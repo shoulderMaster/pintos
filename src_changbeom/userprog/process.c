@@ -450,6 +450,7 @@ process_exit (void)
   
     for (i = 2; i < FILE_MAX; i++) {
       process_close_file (i);
+      munmap (i+FILE_MAX);
     }
      /* FDT는 PCB와 같은 페이지에 있는 것이 아닌 따로 할당을 해줬었음.
         고로 따로 페이지 해제를 해줘야함 */
