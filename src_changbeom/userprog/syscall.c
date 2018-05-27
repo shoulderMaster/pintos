@@ -18,11 +18,7 @@
 #define STDIN   0
 #define STDOUT  1
 
-typedef int pid_t;
-typedef int mapid_t;
-
 static void syscall_handler (struct intr_frame *);
-struct vm_entry *check_address (void *addr);
 void get_argument (void *esp, int *arg, int count);
 void halt ();
 void exit (int status);
@@ -38,13 +34,11 @@ void seek (int fd, unsigned position);
 void close (int fd);
 unsigned tell (int fd);
 mapid_t mmap (int fd, void *addr);
-void munmap (int mapping);
 
 /* read() write() 시스템콜 호출 시 사용될 lock
    disk 같은 공유자원에 접근 할 때는
    critical section, mutex등으로 
    공유자원에 대한 동시 접근 보호가 필요함 */
-struct lock rw_lock;
 
 void munmap (int mapping) {
   struct list_elem *elem = NULL;
@@ -407,7 +401,9 @@ int open (const char *file) {
   } else {
     /* filesys_open() 으로 해당 파일이름과 경로에 해당하는 파일을 열어서 파일객체를 반환함
        이 과정에서 해당 파일이 없거나 권한에 문제가 있어 열지 못한다면 null을 반환함 */
+    lock_acquire (&rw_lock);
     file_object = filesys_open (file);
+    lock_release (&rw_lock);
   }
   
   /* 해당 파일이 문제가 있어 null을 반환 받았다면 -1리턴 */

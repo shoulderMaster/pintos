@@ -23,6 +23,8 @@
 #include "filesys/file.h"
 #include "lib/kernel/hash.h"
 
+extern struct lock rw_lock;
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 int _get_argc(char* file_name);
@@ -49,7 +51,9 @@ void do_munmap (struct mmap_file *mmap_file) {
     struct vm_entry *vme = list_entry (vm_elem, struct vm_entry, mmap_elem);
     if (vme->is_loaded &&
         pagedir_is_dirty (cur->pagedir, vme->vaddr)) {
+      lock_acquire (&rw_lock);
       file_write_at (vme->file, vme->vaddr, vme->read_bytes, vme->offset);
+      lock_release (&rw_lock);
       pagedir_clear_page (cur->pagedir, vme->vaddr);
       palloc_free_page (pagedir_get_page (cur->pagedir, vme->vaddr));
     }
