@@ -157,6 +157,8 @@ page_fault (struct intr_frame *f)
 
     /* vm_entry를 인자로 넘겨주며 handle_mm_fault() 호출 */
     handle_mm_fault (vme);
+  } else {
+    exit (-1);
   }
   /* 제대로 파일이 물리 메모리에 로드 되고 맵핑 됬는지 검사 */ 
   check_address (fault_addr);
