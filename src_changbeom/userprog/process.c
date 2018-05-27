@@ -165,6 +165,9 @@ start_process (void *file_name_)
 
   /* vm_init() 함수를 이용하여 해시테이블 초기화 */
   vm_init (&thread_current ()->vm); 
+
+  /* mmap_list 초기화 */
+  list_init (&thread_current ()->mmap_list);
   
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
