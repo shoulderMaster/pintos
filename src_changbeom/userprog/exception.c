@@ -5,6 +5,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/process.h"
+#include "vm/page.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -153,7 +154,7 @@ page_fault (struct intr_frame *f)
   /* read only 페이지에 대한 접근이 아닐 경우 (not_present 참조)*/
   if (not_present) {
     /* 페이지 폴트가 일어난 주소에 대한 vm_entry 구조체 탐색 */
-    vme = find_vme (fault_addr) ;
+    vme = find_vme (fault_addr);
     /* bad address (비정상적인 가상 주소 접근 시) 프로세스 종료 */
     if (vme == NULL)
       exit (-1);
