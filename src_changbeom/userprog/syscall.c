@@ -83,7 +83,8 @@ mapid_t mmap (int fd, void *addr) {
   /* addr 은 page 크기 단위여야함. 그리고 유저 메모리 영역이어야함*/
   if (!(addr != NULL &&
         pg_ofs (addr) == 0 &&
-        is_user_vaddr (addr))) {
+        is_user_vaddr (addr) &&
+        check_address (addr) == NULL)) {
     return -1;
   }
   
