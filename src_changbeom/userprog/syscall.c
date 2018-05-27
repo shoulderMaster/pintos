@@ -2,9 +2,13 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+#include <list.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "lib/string.h"
+#include "userprog/process.h"
+#include "vm/page.h"
+#include "threads/vaddr.h"
 
 /* 보다 직관적인 check_address() 를 작성하기 위해 
    각 메모리 영역 시작 주소 값을 USER_START, KERNEL_START로 정의함. */
@@ -14,8 +18,9 @@
 #define STDIN   0
 #define STDOUT  1
 
-
 typedef int pid_t;
+typedef int mapid_t;
+
 static void syscall_handler (struct intr_frame *);
 struct vm_entry *check_address (void *addr);
 void get_argument (void *esp, int *arg, int count);
@@ -32,6 +37,7 @@ int write (int fd, void *buffer, unsigned size);
 void seek (int fd, unsigned position);
 void close (int fd);
 unsigned tell (int fd);
+mapid_t mmap (int fd, void *addr);
 
 /* read() write() 시스템콜 호출 시 사용될 lock
    disk 같은 공유자원에 접근 할 때는
@@ -39,6 +45,74 @@ unsigned tell (int fd);
    공유자원에 대한 동시 접근 보호가 필요함 */
 struct lock rw_lock;
 
+mapid_t mmap (int fd, void *addr) {
+  struct mmap_file *mmap_file = NULL;
+  struct file *file = NULL;
+  off_t offset = 0;
+  uint8_t *upage = addr;
+  uint32_t read_bytes = 0;
+  
+  /* file object pointer를 가져옴 */
+  file = process_get_file (fd);
+  if (file == NULL) {
+    return -1;
+  }
+  
+  /* addr 은 page 크기 단위여야함 */
+  if (!(addr != NULL && pg_ofs (addr) == 0)) {
+    return -1;
+  }
+  
+  mmap_file = (struct mmap_file *)malloc (sizeof (struct mmap_file));
+  if (mmap_file == NULL) {
+    return -1;
+  }
+  
+  memset (mmap_file, 0x00, sizeof (struct mmap_file));
+  /* fd + 최대 파일 디스크립터 개수로 mapid 결정*/
+  mmap_file->mapid = fd + FILE_MAX; 
+  /* 파일이 나중에 close되어도 mmap() 유효성 유지 */
+  mmap_file->file = file_reopen (file);
+  list_init (&mmap_file->vme_list);
+  list_push_back (&thread_current ()->mmap_list, &mmap_file->elem);
+
+  read_bytes = file_length (mmap_file->file);
+  
+  while (read_bytes > 0) {
+      /* Calculate how to fill this page.
+         We will read PAGE_READ_BYTES bytes from FILE
+         and zero the final PAGE_ZERO_BYTES bytes. */
+      size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+      size_t page_zero_bytes = PGSIZE - page_read_bytes;
+           
+      /*  vm_entry 생성 (malloc 사용) */
+      struct vm_entry *vme = (struct vm_entry*)malloc (sizeof (struct vm_entry));
+      if (vme == NULL) 
+        return false;
+
+      /*  vm_entry 멤버들 설정, 가상페이지가 요구될 때 읽어야할 파일의 오프
+       셋과 사이즈, 마지막에 패딩할 제로 바이트 등등 */
+      memset (vme, 0x00, sizeof (struct vm_entry));
+      vme->vaddr = upage;
+      vme->type = VM_FILE;
+      vme->writable = true;
+      vme->is_loaded = false;
+      vme->file = mmap_file->file;
+      vme->offset = offset;
+      vme->read_bytes = page_read_bytes;
+      vme->zero_bytes = page_zero_bytes;
+
+      /*  insert_vme() 함수를 사용해서 생성한 vm_entry를 해시테이블에 추가 */
+      list_push_back (&mmap_file->vme_list, &vme->mmap_elem);
+      insert_vme (&thread_current ()->vm, vme);
+
+      /* Advance. */
+      offset += page_read_bytes;
+      read_bytes -= page_read_bytes;
+      upage += PGSIZE;
+    }
+  return mmap_file->mapid;
+}
 
 void
 syscall_init (void) 
