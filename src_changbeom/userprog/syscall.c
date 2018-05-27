@@ -38,12 +38,34 @@ void seek (int fd, unsigned position);
 void close (int fd);
 unsigned tell (int fd);
 mapid_t mmap (int fd, void *addr);
+void munmap (int mapping);
 
 /* read() write() 시스템콜 호출 시 사용될 lock
    disk 같은 공유자원에 접근 할 때는
    critical section, mutex등으로 
    공유자원에 대한 동시 접근 보호가 필요함 */
 struct lock rw_lock;
+
+void munmap (int mapping) {
+  struct list_elem *elem = NULL;
+  struct thread *cur = thread_current ();
+  struct mmap_file *mmap_file = NULL;
+
+  /* mapping에 해당하는 mmap_file을 thread 구조체의 mmap_list를 순회하여 찾는다 */
+  for (elem = list_begin (&cur->mmap_list);
+       elem != list_end (&cur->mmap_list); elem = list_next (elem)) {
+    struct mmap_file *mm_f = list_entry (elem, struct mmap_file, elem);
+    if (mm_f->mapid == mapping) {
+      mmap_file = mm_f;
+      break;
+    }
+  }
+  /* mapping 에 해당하는 mmap_file을 찾지 못한 경우 종료 */
+  if (mmap_file == NULL)
+    return;
+  else
+    do_munmap (mmap_file);
+}
 
 mapid_t mmap (int fd, void *addr) {
   struct mmap_file *mmap_file = NULL;
@@ -63,11 +85,13 @@ mapid_t mmap (int fd, void *addr) {
     return -1;
   }
   
+  /* mmap_file 를 생성하기 위해 메모리 할당 */
   mmap_file = (struct mmap_file *)malloc (sizeof (struct mmap_file));
   if (mmap_file == NULL) {
     return -1;
   }
-  
+
+  /* mmap_file 멤버 초기화 */
   memset (mmap_file, 0x00, sizeof (struct mmap_file));
   /* fd + 최대 파일 디스크립터 개수로 mapid 결정*/
   mmap_file->mapid = fd + FILE_MAX; 
@@ -110,7 +134,7 @@ mapid_t mmap (int fd, void *addr) {
       offset += page_read_bytes;
       read_bytes -= page_read_bytes;
       upage += PGSIZE;
-    }
+  }
   return mmap_file->mapid;
 }
 
@@ -162,13 +186,6 @@ syscall_handler (struct intr_frame *f UNUSED)
         get_argument (esp, arg, 1);
         f->eax = wait ((tid_t)arg[0]);
         break;
-
-   /* 
-    case SYS_WRITE :
-        get_argument(esp, arg, 3);
-        printf("%d %s %d\n", arg[0], arg[1], arg[2]);
-        break;
-    */
 
     case SYS_CREATE :
         get_argument (esp, arg, 2);
@@ -224,6 +241,17 @@ syscall_handler (struct intr_frame *f UNUSED)
      case SYS_CLOSE :
         get_argument (esp, arg, 1);
         close ((int)arg[0]);
+        break;
+
+     case SYS_MMAP : 
+        get_argument (esp, arg, 2);
+        check_address (arg[1]);
+        f->eax = mmap ((int)arg[0], (void*)arg[1]);
+        break;
+
+     case SYS_MUNMAP :
+        get_argument (esp, arg, 1);
+        munmap ((int)arg[0]);
         break;
 
   }
