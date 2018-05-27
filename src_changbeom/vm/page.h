@@ -10,11 +10,6 @@
 #define VM_FILE 1
 #define VM_ANON 2
 
-void check_valid_buffer (void *buffer, unsigned size, void *esp, bool to_write);
-void check_valid_string (const void *str, void *esp);
-void vm_init (struct hash *vm); 
-void vm_destory (struct hash *vm);
-
 struct vm_entry {
   uint8_t type;             /*  VM_BIN, VM_FILE, VM_ANON의 타입 */
   void *vaddr;              /*  vm_entry의 가상페이지 번호 */
@@ -36,6 +31,17 @@ struct vm_entry {
   /*  ‘vm_entry들을 위한 자료구조’ 부분에서 다룰 예정 */
   struct hash_elem elem;        /*  해시 테이블 Element */
 }; 
+
+static bool vm_less_func (const struct hash_elem *a, const struct hash_elem *b); 
+static unsigned vm_hash_func (const struct hash_elem *e, void *aux);
+bool insert_vme (struct hash *vm, struct vm_entry *vme);
+bool delete_vme (struct hash *vm, struct vm_entry *vme);
+struct vm_entry *find_vme (void *vaddr); 
+void vm_destroy_func (struct hash_elem *e, void *aux);
+void check_valid_buffer (void *buffer, unsigned size, void *esp, bool to_write);
+void check_valid_string (const void *str, void *esp);
+void vm_init (struct hash *vm); 
+void vm_destory (struct hash *vm);
 
 bool load_file (void *kaddr, struct vm_entry *vme);
 

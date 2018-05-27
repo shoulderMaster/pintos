@@ -1,15 +1,10 @@
+#include "vm/page.h"
 #include "threads/vaddr.h"
 #include "lib/kernel/hash.h"
 #include "filesys/file.h"
 #include "threads/thread.h"
-#include "vm/page.h"
+#include <string.h>
 
-static bool vm_less_func (const struct hash_elem *a, const struct hash_elem *b); 
-static unsigned vm_hash_func (const struct hash_elem *e, void *aux);
-bool insert_vme (struct hash *vm, struct vm_entry *vme);
-bool delete_vme (struct hash *vm, struct vm_entry *vme);
-struct vm_entry *find_vme (void *vaddr); 
-void vm_destroy_func (struct hash_elem *e, void *aux);
 
 bool load_file (void *kaddr, struct vm_entry *vme) {
   /* Using file_read_at()*/
@@ -95,7 +90,8 @@ void vm_destroy_func (struct hash_elem *e, void *aux) {
    page의 할당 해제 및 page mapping 해제 (palloc_free_page()와
    pagedir_clear_page() 사용) */
   if (vme->is_loaded) {
-    palloc_free_page (vme->vaddr);
+    void *kaddr = pagedir_get_page (thread_current ()->pagedir, vme->vaddr);
+    palloc_free_page (kaddr);
     pagedir_clear_page (thread_current ()->pagedir, vme->vaddr);
   }
 
