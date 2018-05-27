@@ -105,7 +105,7 @@ struct thread
     struct thread *parent;
 
     /* 자식 리스트 element */
-    struct list_elem child_elem;//?
+    struct list_elem child_elem;
         
     /* 자식 리스트 */
     struct list child_list;
@@ -135,9 +135,6 @@ struct thread
     /* 실행 중인 ELF파일 객체를 PCB에 유지하기 위한 멤버 변수*/
     struct file *run_file;
     
-    /* sleep_list를 만들기 위한 list_elem */
-    struct list_elem sleep_elem;
-
     /* alarm clock을 구현하기 위해 프로세스를 재울 시간을 저장함 */
     int64_t wakeup_tick;
 
@@ -148,8 +145,12 @@ struct thread
     struct list donations;
 
     struct list_elem donation_elem;
- 
-    struct hash vm;  /* 스레드가 가진 가상 주소 공간을 관리하는 해시테이블 */
+   
+    /* 스레드가 가진 가상 주소 공간을 관리하는 해시테이블 */
+    struct hash vm;
+
+    /* mmap으로 물리 메모리에 매핑 시킨 파일 목록을 관리하는 리스트 */
+    struct list mmap_list;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
