@@ -17,7 +17,7 @@
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
-#include "vm/page.c"
+#include "vm/page.h"
 #include "threads/vaddr.h"
 #include "filesys/file.h"
 #include "lib/kernel/hash.h"
@@ -44,6 +44,7 @@ bool handle_mm_fault (struct vm_entry *vme) {
   /* page는 user pool에서 가져와야 한다. */
   void *kaddr = palloc_get_page (PAL_USER|PAL_ZERO);
   ASSERT (kaddr != NULL);
+  ASSERT (vme != NULL);
   /* switch문으로 vm_entry의 타입별 처리 (VM_BIN외의 나머지 타입은 mmf
      와 swapping에서 다룸*/
   switch (vme->type) {
@@ -766,12 +767,12 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
            
       /*  vm_entry 생성 (malloc 사용) */
       struct vm_entry *vme = (struct vm_entry*)malloc (sizeof (struct vm_entry));
-      memset (vme, 0x00, sizeof (struct vm_entry));
       if (vme == NULL) 
         return false;
-      
+
       /*  vm_entry 멤버들 설정, 가상페이지가 요구될 때 읽어야할 파일의 오프
        셋과 사이즈, 마지막에 패딩할 제로 바이트 등등 */
+      memset (vme, 0x00, sizeof (struct vm_entry));
       vme->vaddr = upage;
       vme->type = VM_BIN;
       vme->writable = writable;
@@ -786,6 +787,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       insert_vme (&thread_current ()->vm, vme);
 
       /* Advance. */
+      ofs += page_read_bytes;
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
@@ -801,11 +803,12 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
   struct vm_entry *vme = NULL;
+  void *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+      success = install_page (upage, kpage, true);
       if (success)
         *esp = PHYS_BASE;
       else
@@ -815,15 +818,16 @@ setup_stack (void **esp)
   vme = (struct vm_entry*)malloc (sizeof (struct vm_entry));
   if (!vme)
     return false;
+  memset (vme, 0x00, sizeof (struct vm_entry));
 
   /* vm_entry 멤버들 설정 */
   vme->type = VM_ANON;
   vme->writable = true;
-  vme->vaddr = ((uint8_t *) PHYS_BASE) - PGSIZE;
+  vme->vaddr = upage;
   vme->is_loaded = true;
 
   /* insert_vme ()로 해시테이블 추가 */
-  hash_insert (&thread_current ()->vm, &vme->elem);
+  insert_vme (&thread_current ()->vm, vme);
 
   return success;
 }
