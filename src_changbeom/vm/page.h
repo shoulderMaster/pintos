@@ -39,6 +39,13 @@ struct vm_entry {
   struct hash_elem elem;        /*  해시 테이블 Element */
 }; 
 
+struct page  {
+  void *kaddr;
+  struct vm_entry *vme;
+  struct thread *thread;
+  struct list_elem lru;
+}
+
 static bool vm_less_func (const struct hash_elem *a, const struct hash_elem *b); 
 static unsigned vm_hash_func (const struct hash_elem *e, void *aux);
 bool insert_vme (struct hash *vm, struct vm_entry *vme);
