@@ -49,11 +49,13 @@ void do_munmap (struct mmap_file *mmap_file) {
 
     /* vme가 가리키는 가상주소에 대한 물리 페이지가 존재하고, dirty하면 write-back을 함 */
     struct vm_entry *vme = list_entry (vm_elem, struct vm_entry, mmap_elem);
-    if (vme->is_loaded &&
-        pagedir_is_dirty (cur->pagedir, vme->vaddr)) {
-      lock_acquire (&rw_lock);
-      file_write_at (vme->file, vme->vaddr, vme->read_bytes, vme->offset);
-      lock_release (&rw_lock);
+    if (vme->is_loaded) {
+      if (pagedir_is_dirty (cur->pagedir, vme->vaddr)) {
+        lock_acquire (&rw_lock);
+        file_write_at (vme->file, vme->vaddr, vme->read_bytes, vme->offset);
+        lock_release (&rw_lock);
+      }
+      /* load 된 경우에는 해당 페이지 해제 */
       pagedir_clear_page (cur->pagedir, vme->vaddr);
       palloc_free_page (pagedir_get_page (cur->pagedir, vme->vaddr));
     }
