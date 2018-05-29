@@ -23,3 +23,20 @@ void del_page_from_lru_list (struct page *page) {
   }
   list_remove (&page->lru);
 }
+
+static struct list_elem *get_next_lru_clock () {
+  if (lru_clock == NULL) {
+    if (list_empty (&lru_list))
+      return NULL;
+    else
+      lru_clock = list_begin (&lru_list);
+  } else {
+    do {
+      if (lru_clock == list_end (&lru_list))
+        lru_clock = list_begin (&lru_list);
+      else 
+        lru_clock = list_next (lru_clock);
+    } while (lru_clock == list_end (&lru_list));
+  }
+  return lru_clock;
+}
