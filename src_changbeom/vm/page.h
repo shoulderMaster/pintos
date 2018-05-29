@@ -5,10 +5,13 @@
 #include <list.h>
 #include "threads/thread.h"
 #include "filesys/file.h"
+#include "threads/vaddr.h"
 
 #define VM_BIN  0
 #define VM_FILE 1
 #define VM_ANON 2
+
+#define SWAP_SIZE 1024*PGSIZE
 
 struct mmap_file {
   int mapid;
@@ -46,6 +49,7 @@ struct page  {
   struct list_elem lru;
 }
 
+void swap_init (void);
 static bool vm_less_func (const struct hash_elem *a, const struct hash_elem *b); 
 static unsigned vm_hash_func (const struct hash_elem *e, void *aux);
 bool insert_vme (struct hash *vm, struct vm_entry *vme);

@@ -1,10 +1,19 @@
 #include "vm/page.h"
+#include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "lib/kernel/hash.h"
 #include "filesys/file.h"
 #include "threads/thread.h"
+#include <bitmap.h>
 #include <string.h>
 
+struct lock swap_lock;
+struct bitmap *swap_bitmap;
+
+void swap_init (void) {
+  lock_init (&swap_init);
+  swap_bitmap = bitmap_create (SWAP_SIZE / PGSIZE);
+}
 
 bool load_file (void *kaddr, struct vm_entry *vme) {
   /* Using file_read_at()*/
