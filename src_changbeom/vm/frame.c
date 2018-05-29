@@ -1,9 +1,8 @@
 #include <list.h>
 #include "threads/synch.h"
 #include "vm/page.h"
+#include "vm/frame.h"
 
-struct list lru_list;
-struct lock lru_lock;
 struct list_elem *lru_clock;
 
 void lru_list_init (void) {

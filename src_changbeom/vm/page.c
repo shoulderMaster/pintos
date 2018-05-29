@@ -1,9 +1,13 @@
 #include "vm/page.h"
 #include "threads/vaddr.h"
+#include "threads/palloc.h"
 #include "lib/kernel/hash.h"
+#include "vm/frame.h"
 #include "filesys/file.h"
 #include "threads/thread.h"
 #include <string.h>
+
+extern struct lock lru_lock;
 
 bool load_file (void *kaddr, struct vm_entry *vme) {
   /* Using file_read_at()*/
@@ -139,3 +143,41 @@ void check_valid_string (const void *str, void *esp) {
   check_valid_buffer (str, strlen (str) + 1, esp, false);
 }
 
+struct page *alloc_page (enum palloc_flags flags) {
+  struct page *page = NULL;
+  page = (struct page*)malloc (sizeof (struct page));
+  if (page == NULL) {
+    return NULL;
+  }
+
+  page->thread = thread_current ();
+  page->kaddr = palloc_get_page (flags);
+  if (page->kaddr) {
+    return NULL; //나중에 swap으로 개선
+  }
+  add_page_to_lru_list (page);
+  return page;
+}
+
+void free_page (void *kaddr) {
+  struct list_elem *e = NULL;
+  struct page *page = NULL;
+  lock_acquire (&lru_lock);
+  for (e = list_begin (&lru_list); e != list_end (&lru_list); e = list_next (e)) {
+    page = list_entry (e, struct page, lru);
+    if (page->kaddr == kaddr)
+      break;
+  }
+  lock_release (&lru_lock);
+
+  if (page != NULL) {
+    __free_page (page);
+  }
+}
+
+void __free_page (struct page* page) {
+  pagedir_clear_page (page->kaddr);
+  del_page_from_lru_list (page);
+  palloc_free_page (page->kaddr);
+  free (page);
+}
