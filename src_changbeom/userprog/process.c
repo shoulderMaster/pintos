@@ -99,6 +99,10 @@ bool handle_mm_fault (struct vm_entry *vme) {
       break;
     case VM_ANON :
       swap_in (vme->swap_slot, page->kaddr);
+      if (!install_page (vme->vaddr, page->kaddr, vme->writable)) {
+        __free_page (page);
+        return false;
+      }
       vme->is_loaded = true;
       break;
   }
@@ -846,20 +850,20 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
-  uint8_t *kpage;
+  struct page *page = NULL;
   bool success = false;
   struct vm_entry *vme = NULL;
   void *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
-    {
-      success = install_page (upage, kpage, true);
-      if (success)
-        *esp = PHYS_BASE;
-      else
-        palloc_free_page (kpage);
-    }
+  page = alloc_page (PAL_USER | PAL_ZERO);
+  if (page != NULL) 
+  {
+    success = install_page (upage, page->kaddr, true);
+    if (success)
+      *esp = PHYS_BASE;
+    else
+      __free_page (page);
+  }
   /* vm_entry 생성 */
   vme = (struct vm_entry*)malloc (sizeof (struct vm_entry));
   if (!vme)
@@ -871,6 +875,7 @@ setup_stack (void **esp)
   vme->writable = true;
   vme->vaddr = upage;
   vme->is_loaded = true;
+  page->vme = vme;
 
   /* insert_vme ()로 해시테이블 추가 */
   insert_vme (&thread_current ()->vm, vme);

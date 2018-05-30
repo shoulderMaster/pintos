@@ -162,7 +162,7 @@ page_fault (struct intr_frame *f)
     /* vm_entry를 인자로 넘겨주며 handle_mm_fault() 호출 */
     /* 제대로 파일이 물리 메모리에 로드 되고 맵핑 됐는지 검사 */ 
     /* file을 읽어오지 못하거나, 페이지 pool이 가득 차 물리페이지에 맵핑을 못한경우 */
-    if (handle_mm_fault (vme) == NULL)
+    if (handle_mm_fault (vme) == false)
       exit (-1);
   } else {
     /* present인 페이지를 접근하다가 page_fault가 난 경우는 모두 죽여버려야함.
