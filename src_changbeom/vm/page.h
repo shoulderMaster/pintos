@@ -5,6 +5,7 @@
 #include <list.h>
 #include "threads/thread.h"
 #include "filesys/file.h"
+#include "threads/palloc.h"
 
 #define VM_BIN  0
 #define VM_FILE 1
@@ -59,4 +60,7 @@ void vm_destory (struct hash *vm);
 
 bool load_file (void *kaddr, struct vm_entry *vme);
 
+struct page *alloc_page (enum palloc_flags flags); 
+void free_page (void *kaddr); 
+void __free_page (struct page* page); 
 #endif /* vm/page.h */

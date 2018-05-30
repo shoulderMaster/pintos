@@ -79,22 +79,26 @@ void do_munmap (struct mmap_file *mmap_file) {
 bool handle_mm_fault (struct vm_entry *vme) {
   /* palloc_get_page()를 이용해서 물리메모리 할당 */
   /* page는 user pool에서 가져와야 한다. */
-  void *kaddr = palloc_get_page (PAL_USER|PAL_ZERO);
-  ASSERT (kaddr != NULL);
+  struct page *page = alloc_page (PAL_USER|PAL_ZERO);
   ASSERT (vme != NULL);
   /* switch문으로 vm_entry의 타입별 처리 (VM_BIN외의 나머지 타입은 mmf
      와 swapping에서 다룸*/
+  page->vme = vme;
   switch (vme->type) {
     /* VM_BIN일 경우 load_file()함수를 이용해서 물리메모리에 로드 */
     /* install_page를 이용해서 물리페이지와 가상페이지 맵핑 */
     case VM_BIN :
     case VM_FILE :
       /* load_file(), install_page() 수행 중 false 반환 되는 경우 예외처리 */
-      if (!(load_file (kaddr, vme) &&
-            install_page (vme->vaddr, kaddr, vme->writable)))  {
-        palloc_free_page (kaddr);
+      if (!(load_file (page->kaddr, vme) &&
+            install_page (vme->vaddr, page->kaddr, vme->writable)))  {
+        __free_page (page);
         return false;
       }
+      vme->is_loaded = true;
+      break;
+    case VM_ANON :
+      swap_in (vme->swap_slot, page->kaddr);
       vme->is_loaded = true;
       break;
   }

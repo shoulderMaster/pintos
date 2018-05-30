@@ -149,7 +149,7 @@ struct page *alloc_page (enum palloc_flags flags) {
   if (page == NULL) {
     return NULL;
   }
-
+  memset (page, 0x00, sizeof (struct page));
   page->thread = thread_current ();
   page->kaddr = palloc_get_page (flags);
   if (page->kaddr == NULL) {
