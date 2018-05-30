@@ -8,7 +8,7 @@ struct lock lru_lock;
 void lru_list_init (void);
 void add_page_to_lru_list (struct page *page);
 void del_page_from_lru_list (struct page *page);
-void try_to_free_pages (enum palloc_flags flags); 
+void *try_to_free_pages (enum palloc_flags flags); 
 
 
 

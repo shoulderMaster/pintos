@@ -4,6 +4,7 @@
 #include "vm/page.h"
 #include "threads/palloc.h"
 #include "vm/frame.h"
+#include "userprog/syscall.h"
 
 struct list_elem *lru_clock;
 
@@ -47,7 +48,7 @@ static struct list_elem *get_next_lru_clock (void) {
   return lru_clock;
 }
 
-void try_to_free_pages (enum palloc_flags flags) {
+void *try_to_free_pages (enum palloc_flags flags) {
   struct page *victim_page = NULL;
   while (1) {
     struct list_elem *elem = get_next_lru_clock ();
@@ -59,6 +60,27 @@ void try_to_free_pages (enum palloc_flags flags) {
       break;
     }
   }
-  /* swap 구현 */
   
+  lock_acquire (&lru_lock);
+  if (victim_page->vme->type == VM_ANON) {
+    victim_page->vme->swap_slot = swap_out (victim_page->kaddr);
+  } else if (pagedir_is_dirty (victim_page->thread->pagedir, victim_page->vme->vaddr)) {
+    switch (victim_page->vme->type) {
+      case VM_FILE :
+        lock_acquire (&rw_lock);
+        file_write_at (victim_page->vme->file, victim_page->vme->vaddr,
+                       victim_page->vme->read_bytes, victim_page->vme->offset);
+        lock_release (&rw_lock);
+        break;
+      case VM_BIN :
+        victim_page->vme->swap_slot = swap_out (victim_page->kaddr);
+        victim_page->vme->type = VM_ANON;
+        break;
+    }
+  }
+  victim_page->vme->is_loaded = false;
+  __free_page (victim_page);
+  lock_release (&lru_lock);
+
+  return palloc_get_page (flags);
 }
