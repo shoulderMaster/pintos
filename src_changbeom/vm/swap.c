@@ -12,7 +12,7 @@ struct block *swap_block;
 #define SECTORS_PER_PAGE (PGSIZE / BLOCK_SECTOR_SIZE) 
 
 void swap_init (void) {
-  lock_init (&swap_init);
+  lock_init (&swap_lock);
   swap_bitmap = bitmap_create (SWAP_SIZE / PGSIZE);
   swap_block = block_get_role (BLOCK_SWAP);
 }

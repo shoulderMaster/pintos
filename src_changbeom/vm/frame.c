@@ -79,8 +79,8 @@ void *try_to_free_pages (enum palloc_flags flags) {
     }
   }
   victim_page->vme->is_loaded = false;
-  __free_page (victim_page);
   lock_release (&lru_lock);
+  __free_page (victim_page);
 
   return palloc_get_page (flags);
 }
