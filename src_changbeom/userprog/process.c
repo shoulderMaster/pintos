@@ -57,7 +57,7 @@ void do_munmap (struct mmap_file *mmap_file) {
       }
       /* load 된 경우에는 해당 페이지 해제 */
       pagedir_clear_page (cur->pagedir, vme->vaddr);
-      palloc_free_page (pagedir_get_page (cur->pagedir, vme->vaddr));
+      free_page (pagedir_get_page (cur->pagedir, vme->vaddr));
     }
     
     /* vm_elem 을 mmap_list에서 제거한다 */
