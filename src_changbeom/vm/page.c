@@ -152,8 +152,8 @@ struct page *alloc_page (enum palloc_flags flags) {
 
   page->thread = thread_current ();
   page->kaddr = palloc_get_page (flags);
-  if (page->kaddr) {
-    return NULL; //나중에 swap으로 개선
+  if (page->kaddr == NULL) {
+    page->kaddr = try_to_free_pages (flags);
   }
   add_page_to_lru_list (page);
   return page;
