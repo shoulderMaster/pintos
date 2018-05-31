@@ -17,7 +17,9 @@ bool load_file (void *kaddr, struct vm_entry *vme) {
     return false;
 
   /* zero_bytes만큼 남는 부분을‘0’으로 패딩 */
-  memset (kaddr + vme->read_bytes, 0, vme->zero_bytes);
+  if (vme->zero_bytes > 0) {
+    memset (kaddr + vme->read_bytes, 0, vme->zero_bytes);
+  }
   
   /*정상적으로 file을 메모리에 loading 하면 true 리턴*/
   return true;
