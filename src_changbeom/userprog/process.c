@@ -24,6 +24,7 @@
 #include "lib/kernel/hash.h"
 
 extern struct lock rw_lock;
+extern struct lock lru_lock;
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -83,6 +84,7 @@ bool handle_mm_fault (struct vm_entry *vme) {
   /* switch문으로 vm_entry의 타입별 처리 (VM_BIN외의 나머지 타입은 mmf
      와 swapping에서 다룸*/
   page->vme = vme;
+ // printf ("vme : %p | swap_in  | %s | read : %d | zero : %d | tid : %d\n", page->vme->vaddr, page->vme->type == 0 ? "VM_BIN" : (page->vme->type == 1 ? "VM_FILE" : "VM_ANON"), page->vme->read_bytes, page->vme->zero_bytes, thread_current ()->tid);
   switch (vme->type) {
     /* VM_BIN일 경우 load_file()함수를 이용해서 물리메모리에 로드 */
     /* install_page를 이용해서 물리페이지와 가상페이지 맵핑 */
@@ -431,10 +433,7 @@ process_wait (tid_t child_pid)
 
   /*  wait하고자 하는 자식 프로세스가 아직 종료가 안되었다면 
       프로세스가 종료되고 sema_up될 때까지 block상태로 기다린다.*/
-  if (!child->exited)
-  {
-    sema_down(&child->exit_sema);
-  }
+  sema_down(&child->exit_sema);
   
   /*  자식 프로세스 종료 코드를 받아오고 
       자식 프로세스의 PCB를 해제하는 작업을 함. */
@@ -866,8 +865,12 @@ setup_stack (void **esp)
     success = install_page (upage, page->kaddr, true);
     if (success)
       *esp = PHYS_BASE;
-    else
+    else {
+  
+      lock_acquire (&lru_lock);
       __free_page (page);
+      lock_release (&lru_lock);
+    }
   }
   /* vm_entry 생성 */
   vme = (struct vm_entry*)malloc (sizeof (struct vm_entry));

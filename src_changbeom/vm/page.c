@@ -13,6 +13,7 @@ bool load_file (void *kaddr, struct vm_entry *vme) {
   /* Using file_read_at()*/
   /* file_read_at으로 물리페이지에 read_bytes만큼 데이터를 씀*/
   /* file_read_at 여부 반환 */
+  
   if (file_read_at (vme->file, kaddr, vme->read_bytes, vme->offset) != vme->read_bytes)
     return false;
 
@@ -170,18 +171,16 @@ void free_page (void *kaddr) {
     if (page->kaddr == kaddr)
       break;
   }
-  lock_release (&lru_lock);
 
   if (page != NULL) {
     __free_page (page);
   }
+  lock_release (&lru_lock);
 }
 
 void __free_page (struct page* page) {
-  lock_acquire (&lru_lock);
   pagedir_clear_page (page->thread->pagedir, page->vme->vaddr);
   del_page_from_lru_list (page);
   palloc_free_page (page->kaddr);
   free (page);
-  lock_release (&lru_lock);
 }

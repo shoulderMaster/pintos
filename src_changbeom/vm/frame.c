@@ -28,7 +28,7 @@ void del_page_from_lru_list (struct page *page) {
 }
 
 static struct list_elem *get_next_lru_clock (void) {
-  lock_acquire (&lru_lock);
+  //lock_acquire (&lru_lock);
   if (lru_clock == NULL) {
     if (list_empty (&lru_list))
       return NULL;
@@ -42,12 +42,13 @@ static struct list_elem *get_next_lru_clock (void) {
         lru_clock = list_next (lru_clock);
     } while (lru_clock == list_end (&lru_list));
   }
-  lock_release (&lru_lock);
+  //lock_release (&lru_lock);
   return lru_clock;
 }
 
 void *try_to_free_pages (enum palloc_flags flags) {
   struct page *victim_page = NULL;
+  lock_acquire (&lru_lock);
   while (1) {
     struct list_elem *elem = get_next_lru_clock ();
     victim_page = (struct page*)list_entry (elem, struct page, lru);
@@ -58,8 +59,8 @@ void *try_to_free_pages (enum palloc_flags flags) {
       break;
     }
   }
-  
-  lock_acquire (&lru_lock);
+
+  //printf ("vme : %p | swap_out  | %s | read : %d | zero : %d | tid : %d\n", victim_page->vme->vaddr, victim_page->vme->type == 0 ? "VM_BIN" : (victim_page->vme->type == 1 ? "VM_FILE" : "VM_ANON"), victim_page->vme->read_bytes, victim_page->vme->zero_bytes, thread_current ()->tid);
   if (victim_page->vme->type == VM_ANON) {
     victim_page->vme->swap_slot = swap_out (victim_page->kaddr);
   } else if (pagedir_is_dirty (victim_page->thread->pagedir, victim_page->vme->vaddr)) {
@@ -77,8 +78,8 @@ void *try_to_free_pages (enum palloc_flags flags) {
     }
   }
   victim_page->vme->is_loaded = false;
-  lock_release (&lru_lock);
   __free_page (victim_page);
+  lock_release (&lru_lock);
 
   return palloc_get_page (flags);
 }
