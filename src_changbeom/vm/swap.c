@@ -18,13 +18,14 @@ void swap_init (void) {
 }
 
 size_t swap_out (void *kaddr) {
-  size_t swap_index = 0;
+  size_t swap_index = 0, sector_index = 0;
   int i = 0;
   lock_acquire (&swap_lock);
   swap_index = bitmap_scan_and_flip (swap_bitmap, 0, 1, false);
+  sector_index = swap_index << 3;
   lock_acquire (&rw_lock);
   for (i = 0; i < SECTORS_PER_PAGE; i++) {
-    block_write (swap_block, swap_index + i, kaddr + BLOCK_SECTOR_SIZE * i);
+    block_write (swap_block, sector_index + i, kaddr + BLOCK_SECTOR_SIZE * i);
   }
   lock_release (&rw_lock);
   lock_release (&swap_lock);

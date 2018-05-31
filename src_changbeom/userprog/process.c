@@ -56,7 +56,6 @@ void do_munmap (struct mmap_file *mmap_file) {
         lock_release (&rw_lock);
       }
       /* load 된 경우에는 해당 페이지 해제 */
-      pagedir_clear_page (cur->pagedir, vme->vaddr);
       free_page (pagedir_get_page (cur->pagedir, vme->vaddr));
     }
     
