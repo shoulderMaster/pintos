@@ -158,7 +158,6 @@ struct page *alloc_page (enum palloc_flags flags) {
   if (page->kaddr == NULL) {
     page->kaddr = try_to_free_pages (flags);
   }
-  add_page_to_lru_list (page);
   return page;
 }
 

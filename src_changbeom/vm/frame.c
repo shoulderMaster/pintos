@@ -54,7 +54,7 @@ void *try_to_free_pages (enum palloc_flags flags) {
     victim_page = (struct page*)list_entry (elem, struct page, lru);
     if (pagedir_is_accessed (victim_page->thread->pagedir, victim_page->vme->vaddr)) {
       pagedir_set_accessed (victim_page->thread->pagedir, victim_page->vme->vaddr, false);
-    } else {
+    } else if (pagedir_get_page (victim_page->thread->pagedir, victim_page->vme->vaddr) != NULL) {
       /* victim_page found */
       break;
     }

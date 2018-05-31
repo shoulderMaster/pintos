@@ -468,6 +468,7 @@ void halt ()
 // 현재 돌아가는 프로세스를 종료시키는 시스템 콜 함수
 void exit (int status)
 {
+  ASSERT (status != -1);
   struct thread *current_thread = thread_current ();
   current_thread->exit_status = status;
   printf ("%s: exit(%d)\n", current_thread->name, status);
