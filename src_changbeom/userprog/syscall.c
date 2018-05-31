@@ -91,7 +91,7 @@ mapid_t mmap (int fd, void *addr) {
   /* mmap_file 멤버 초기화 */
   memset (mmap_file, 0x00, sizeof (struct mmap_file));
   /* fd + 최대 파일 디스크립터 개수로 mapid 결정*/
-  mmap_file->mapid = fd + FILE_MAX; 
+  mmap_file->mapid = thread_current ()->next_mapid++; 
   /* 파일이 나중에 close되어도 mmap() 유효성 유지 */
   mmap_file->file = file_reopen (file);
   list_init (&mmap_file->vme_list);

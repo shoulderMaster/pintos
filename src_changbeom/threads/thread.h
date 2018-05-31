@@ -151,6 +151,7 @@ struct thread
 
     /* mmap으로 물리 메모리에 매핑 시킨 파일 목록을 관리하는 리스트 */
     struct list mmap_list;
+    int next_mapid;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

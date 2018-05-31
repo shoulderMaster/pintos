@@ -449,6 +449,7 @@ void
 process_exit (void)
 {
   struct thread *cur = thread_current ();
+  struct list_elem *elem = NULL;
   uint32_t *pd;
   int i;
   
@@ -464,7 +465,12 @@ process_exit (void)
   
     for (i = 2; i < FILE_MAX; i++) {
       process_close_file (i);
-      munmap (i+FILE_MAX);
+    }
+    for (elem = list_begin (&cur->mmap_list);
+         elem != list_end (&cur->mmap_list); ) {
+      struct mmap_file *mm_f = list_entry (elem, struct mmap_file, elem);
+      elem = list_next (elem);
+      do_munmap (mm_f);
     }
      /* FDT는 PCB와 같은 페이지에 있는 것이 아닌 따로 할당을 해줬었음.
         고로 따로 페이지 해제를 해줘야함 */
