@@ -178,8 +178,10 @@ void free_page (void *kaddr) {
 }
 
 void __free_page (struct page* page) {
+  lock_acquire (&lru_lock);
   pagedir_clear_page (page->thread->pagedir, page->vme->vaddr);
   del_page_from_lru_list (page);
   palloc_free_page (page->kaddr);
   free (page);
+  lock_release (&lru_lock);
 }

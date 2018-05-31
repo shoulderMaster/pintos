@@ -21,12 +21,10 @@ void add_page_to_lru_list (struct page *page) {
 }
 
 void del_page_from_lru_list (struct page *page) {
-  lock_acquire (&lru_lock);
   if (lru_clock == &page->lru) {
     lru_clock = list_next (&page->lru);
   }
   list_remove (&page->lru);
-  lock_release (&lru_lock);
 }
 
 static struct list_elem *get_next_lru_clock (void) {
