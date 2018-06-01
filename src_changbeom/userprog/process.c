@@ -893,6 +893,7 @@ setup_stack (void **esp)
 
   /* insert_vme ()로 해시테이블 추가 */
   insert_vme (&thread_current ()->vm, vme);
+  add_page_to_lru_list (page);
 
   return success;
 }
