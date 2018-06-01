@@ -95,8 +95,7 @@ void vm_destroy_func (struct hash_elem *e, void *aux) {
    pagedir_clear_page() 사용) */
   if (vme->is_loaded) {
     void *kaddr = pagedir_get_page (thread_current ()->pagedir, vme->vaddr);
-    palloc_free_page (kaddr);
-    pagedir_clear_page (thread_current ()->pagedir, vme->vaddr);
+    free_page (kaddr);
   }
 
   /*  vm_entry 객체 할당 해제 */
