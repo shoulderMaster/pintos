@@ -52,6 +52,7 @@ static struct list_elem *get_next_lru_clock (void) {
 void *try_to_free_pages (enum palloc_flags flags) {
   struct page *victim_page = NULL;
   void *kaddr = NULL;
+  /* lru_list에서 victim page를 선정하고 해제 한다음 새 페이지 할당까지 atomic하게 수행하기 위해 lock으로 보호한다 */
   lock_acquire (&lru_lock);
   /* victim page를 찾는다
      해당 page의 vaddr에 해당하는 PTE가 access bit가 0인 경우에 재사용률이 낮다고 간주하여
@@ -60,7 +61,10 @@ void *try_to_free_pages (enum palloc_flags flags) {
     struct list_elem *elem = get_next_lru_clock ();
     victim_page = (struct page*)list_entry (elem, struct page, lru);
     ASSERT (victim_page->vme);
-    ASSERT (victim_page->thread);
+    //ASSERT (victim_page->thread->magic == 0xcd6abf4b);
+    if (victim_page->thread->magic != 0xcd6abf4b) {
+      printf ("tid : %d | thread : %p\n", victim_page->thread->tid, victim_page->thread);
+    }
     ASSERT(pagedir_get_page (victim_page->thread->pagedir, victim_page->vme->vaddr) == victim_page->kaddr);
     ASSERT (victim_page->vme->is_loaded);
     if (pagedir_is_accessed (victim_page->thread->pagedir, victim_page->vme->vaddr)) {
@@ -71,18 +75,22 @@ void *try_to_free_pages (enum palloc_flags flags) {
     }
   }
 
-  //printf ("vme : %p | swap_out  | %s | read : %d | zero : %d | tid : %d\n", victim_page->vme->vaddr, victim_page->vme->type == 0 ? "VM_BIN" : (victim_page->vme->type == 1 ? "VM_FILE" : "VM_ANON"), victim_page->vme->read_bytes, victim_page->vme->zero_bytes, thread_current ()->tid);
+  /* victim page가 anonymous라면 무조건 swap partition으로 swap out한다 */
   if (victim_page->vme->type == VM_ANON) {
     victim_page->vme->swap_slot = swap_out (victim_page->kaddr);
   } else if (pagedir_is_dirty (victim_page->thread->pagedir, victim_page->vme->vaddr)) {
+    /* victim페이지가 FILE이거나 BIN일때 dirty하다면 디스크에 swap out한다 */
     switch (victim_page->vme->type) {
       case VM_FILE :
         lock_acquire (&rw_lock);
+        /* 일반 file인경우 swap partition에 swap out하는것보다 원래 파일에 wrtie-back 한다 */
         file_write_at (victim_page->vme->file, victim_page->vme->vaddr,
                        victim_page->vme->read_bytes, victim_page->vme->offset);
         lock_release (&rw_lock);
         break;
       case VM_BIN :
+        /* 실행파일은 프로세스 실행중에 write를 못한다. 
+           정적 변수가 저장되는 data영역을 swap_out할 수 있도록 vme_type을 anonymous로 바꾼다 */
         victim_page->vme->swap_slot = swap_out (victim_page->kaddr);
         victim_page->vme->type = VM_ANON;
         break;
