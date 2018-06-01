@@ -874,10 +874,10 @@ setup_stack (void **esp)
     if (success)
       *esp = PHYS_BASE;
     else {
-  
-      lock_acquire (&lru_lock);
+      NOT_REACHED ();
+      /* lock_acquire (&lru_lock);
       __free_page (page);
-      lock_release (&lru_lock);
+      lock_release (&lru_lock); */
     }
   }
   /* vm_entry 생성 */
