@@ -28,33 +28,44 @@ void del_page_from_lru_list (struct page *page) {
 }
 
 static struct list_elem *get_next_lru_clock (void) {
-  //lock_acquire (&lru_lock);
+  /* lru_clock이 NULL로 초기화 되어 있을 경우 lru_list의 맨 처음 멤버를 가져온다.
+     list_elem이 비어있는 경우는 NULL을 리턴한다.*/
   if (lru_clock == NULL) {
-    if (list_empty (&lru_list))
+    if (list_empty (&lru_list)) {
       return NULL;
-    else
+    } else {
       lru_clock = list_begin (&lru_list);
+    }
   } else {
+    /* lru_clock이 list의 tail을 가리키지 않도록 clock을 다음 번째 elem으로 옮긴다 */
     do {
-      if (lru_clock == list_end (&lru_list))
+      if (lru_clock == list_end (&lru_list)) {
         lru_clock = list_begin (&lru_list);
-      else 
+      } else  {
         lru_clock = list_next (lru_clock);
+      }
     } while (lru_clock == list_end (&lru_list));
   }
-  //lock_release (&lru_lock);
   return lru_clock;
 }
 
 void *try_to_free_pages (enum palloc_flags flags) {
   struct page *victim_page = NULL;
+  void *kaddr = NULL;
   lock_acquire (&lru_lock);
+  /* victim page를 찾는다
+     해당 page의 vaddr에 해당하는 PTE가 access bit가 0인 경우에 재사용률이 낮다고 간주하여
+     victim page로 선정한다.*/
   while (1) {
     struct list_elem *elem = get_next_lru_clock ();
     victim_page = (struct page*)list_entry (elem, struct page, lru);
+    ASSERT (victim_page->vme);
+    ASSERT (victim_page->thread);
+    ASSERT(pagedir_get_page (victim_page->thread->pagedir, victim_page->vme->vaddr) == victim_page->kaddr);
+    ASSERT (victim_page->vme->is_loaded);
     if (pagedir_is_accessed (victim_page->thread->pagedir, victim_page->vme->vaddr)) {
       pagedir_set_accessed (victim_page->thread->pagedir, victim_page->vme->vaddr, false);
-    } else if (pagedir_get_page (victim_page->thread->pagedir, victim_page->vme->vaddr) != NULL) {
+    } else {
       /* victim_page found */
       break;
     }
@@ -79,7 +90,8 @@ void *try_to_free_pages (enum palloc_flags flags) {
   }
   victim_page->vme->is_loaded = false;
   __free_page (victim_page);
+  kaddr = palloc_get_page (flags);
   lock_release (&lru_lock);
 
-  return palloc_get_page (flags);
+  return kaddr;
 }
