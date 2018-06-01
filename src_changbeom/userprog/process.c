@@ -80,9 +80,8 @@ bool handle_mm_fault (struct vm_entry *vme) {
   /* palloc_get_page()를 이용해서 물리메모리 할당 */
   /* page는 user pool에서 가져와야 한다. */
   struct page *page = NULL;
-  do {
-    page = alloc_page (PAL_USER|PAL_ZERO);
-  } while (page->kaddr == NULL);
+  page = alloc_page (PAL_USER|PAL_ZERO);
+  ASSERT (page != NULL);
 
   ASSERT (vme != NULL);
   /* switch문으로 vm_entry의 타입별 처리 (VM_BIN외의 나머지 타입은 mmf
@@ -97,6 +96,7 @@ bool handle_mm_fault (struct vm_entry *vme) {
       /* load_file(), install_page() 수행 중 false 반환 되는 경우 예외처리 */
       if (!(load_file (page->kaddr, vme) &&
             install_page (vme->vaddr, page->kaddr, vme->writable)))  {
+        NOT_REACHED ();
         __free_page (page);
         return false;
       }
@@ -106,6 +106,7 @@ bool handle_mm_fault (struct vm_entry *vme) {
     case VM_ANON :
       swap_in (vme->swap_slot, page->kaddr);
       if (!install_page (vme->vaddr, page->kaddr, vme->writable)) {
+        NOT_REACHED ();
         __free_page (page);
         return false;
       }
@@ -866,6 +867,7 @@ setup_stack (void **esp)
   void *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
 
   page = alloc_page (PAL_USER | PAL_ZERO);
+  ASSERT (page != NULL);
   if (page != NULL) 
   {
     success = install_page (upage, page->kaddr, true);
