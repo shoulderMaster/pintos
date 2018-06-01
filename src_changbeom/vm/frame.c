@@ -62,8 +62,8 @@ void *try_to_free_pages (enum palloc_flags flags) {
     victim_page = (struct page*)list_entry (elem, struct page, lru);
     ASSERT (victim_page->vme);
     //ASSERT (victim_page->thread->magic == 0xcd6abf4b);
-    if (victim_page->thread->magic != 0xcd6abf4b) {
-      printf ("tid : %d | thread : %p\n", victim_page->thread->tid, victim_page->thread);
+    if(!victim_page->thread->pagedir || victim_page->thread->magic != 0xcd6abf4b) {
+      printf ("%d %s %p", victim_page->thread->tid, victim_page->thread->name, victim_page->thread);
     }
     ASSERT(pagedir_get_page (victim_page->thread->pagedir, victim_page->vme->vaddr) == victim_page->kaddr);
     ASSERT (victim_page->vme->is_loaded);
@@ -93,6 +93,9 @@ void *try_to_free_pages (enum palloc_flags flags) {
            정적 변수가 저장되는 data영역을 swap_out할 수 있도록 vme_type을 anonymous로 바꾼다 */
         victim_page->vme->swap_slot = swap_out (victim_page->kaddr);
         victim_page->vme->type = VM_ANON;
+        break;
+      default :
+        NOT_REACHED ();
         break;
     }
   }
