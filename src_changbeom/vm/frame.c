@@ -5,13 +5,16 @@
 #include "threads/palloc.h"
 #include "vm/frame.h"
 #include "userprog/syscall.h"
+#include "threads/vaddr.h"
 
 struct list_elem *lru_clock;
+void *kernel_file_buffer;
 
 void lru_list_init (void) {
   list_init (&lru_list);
   lock_init (&lru_lock);
   lru_clock = NULL;
+  kernel_file_buffer = palloc_get_page (PAL_ZERO);
 }
 
 void add_page_to_lru_list (struct page *page) {
@@ -53,7 +56,6 @@ void *try_to_free_pages (enum palloc_flags flags) {
   struct page *victim_page = NULL;
   void *kaddr = NULL;
   /* lru_list에서 victim page를 선정하고 해제 한다음 새 페이지 할당까지 atomic하게 수행하기 위해 lock으로 보호한다 */
-  lock_acquire (&lru_lock);
   /* victim page를 찾는다
      해당 page의 vaddr에 해당하는 PTE가 access bit가 0인 경우에 재사용률이 낮다고 간주하여
      victim page로 선정한다.*/
@@ -82,11 +84,10 @@ void *try_to_free_pages (enum palloc_flags flags) {
     /* victim페이지가 FILE이거나 BIN일때 dirty하다면 디스크에 swap out한다 */
     switch (victim_page->vme->type) {
       case VM_FILE :
-        lock_acquire (&rw_lock);
         /* 일반 file인경우 swap partition에 swap out하는것보다 원래 파일에 wrtie-back 한다 */
-        file_write_at (victim_page->vme->file, victim_page->vme->vaddr,
+        memcpy (kernel_file_buffer, victim_page->kaddr, PGSIZE);
+        file_write_at (victim_page->vme->file, kernel_file_buffer,
                        victim_page->vme->read_bytes, victim_page->vme->offset);
-        lock_release (&rw_lock);
         break;
       case VM_BIN :
         /* 실행파일은 프로세스 실행중에 write를 못한다. 
@@ -102,7 +103,6 @@ void *try_to_free_pages (enum palloc_flags flags) {
   victim_page->vme->is_loaded = false;
   __free_page (victim_page);
   kaddr = palloc_get_page (flags);
-  lock_release (&lru_lock);
-
+  ASSERT (kaddr);
   return kaddr;
 }
