@@ -93,7 +93,9 @@ mapid_t mmap (int fd, void *addr) {
   /* fd + 최대 파일 디스크립터 개수로 mapid 결정*/
   mmap_file->mapid = thread_current ()->next_mapid++; 
   /* 파일이 나중에 close되어도 mmap() 유효성 유지 */
+  lock_acquire (&rw_lock);
   mmap_file->file = file_reopen (file);
+  lock_release (&rw_lock);
   list_init (&mmap_file->vme_list);
   list_push_back (&thread_current ()->mmap_list, &mmap_file->elem);
 
@@ -108,8 +110,7 @@ mapid_t mmap (int fd, void *addr) {
            
       /*  vm_entry 생성 (malloc 사용) */
       struct vm_entry *vme = (struct vm_entry*)malloc (sizeof (struct vm_entry));
-      if (vme == NULL) 
-        return false;
+      ASSERT(vme != NULL) 
 
       /*  vm_entry 멤버들 설정, 가상페이지가 요구될 때 읽어야할 파일의 오프
        셋과 사이즈, 마지막에 패딩할 제로 바이트 등등 */

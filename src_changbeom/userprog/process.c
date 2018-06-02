@@ -73,6 +73,7 @@ void do_munmap (struct mmap_file *mmap_file) {
   /* mmap_list에서 mmap_file을 제거한다 */
   list_remove (&mmap_file->elem);
   /* mmap_file에 할당된 동적 메모리를 해제한다 */
+  file_close (mmap_file->file);
   free (mmap_file);
 }
 
