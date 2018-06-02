@@ -8,13 +8,11 @@
 #include "threads/vaddr.h"
 
 struct list_elem *lru_clock;
-void *kernel_file_buffer;
 
 void lru_list_init (void) {
   list_init (&lru_list);
   lock_init (&lru_lock);
   lru_clock = NULL;
-  kernel_file_buffer = palloc_get_page (PAL_ZERO);
 }
 
 void add_page_to_lru_list (struct page *page) {
@@ -85,9 +83,10 @@ void *try_to_free_pages (enum palloc_flags flags) {
     switch (victim_page->vme->type) {
       case VM_FILE :
         /* 일반 file인경우 swap partition에 swap out하는것보다 원래 파일에 wrtie-back 한다 */
-        memcpy (kernel_file_buffer, victim_page->kaddr, PGSIZE);
-        file_write_at (victim_page->vme->file, kernel_file_buffer,
+        lock_acquire (&rw_lock);
+        file_write_at (victim_page->vme->file, victim_page->kaddr,
                        victim_page->vme->read_bytes, victim_page->vme->offset);
+        lock_release (&rw_lock);
         break;
       case VM_BIN :
         /* 실행파일은 프로세스 실행중에 write를 못한다. 
