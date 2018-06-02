@@ -26,8 +26,8 @@ size_t swap_out (void *kaddr) {
   swap_index = bitmap_scan_and_flip (swap_bitmap, 0, 1, false);
   /* 한 페이지에 8개의 block이 사용 되므로 block index는 8배가 됨 */
   sector_index = swap_index << 3;
-  lock_acquire (&rw_lock);
   /* sector_index로부터 8개 block에 페이지의 내용을 write함 */
+  lock_acquire (&rw_lock);
   for (i = 0; i < SECTORS_PER_PAGE; i++) {
     block_write (swap_block, sector_index + i, kaddr + BLOCK_SECTOR_SIZE * i);
   }
@@ -45,9 +45,9 @@ void swap_in (size_t used_index, void *kaddr) {
   for (i = 0; i < SECTORS_PER_PAGE; i++)  {
     block_read (swap_block, sector_index + i, kaddr + BLOCK_SECTOR_SIZE * i);
   }
+  lock_release (&rw_lock);
   /* used index번째 8의 block묶음이 다른 페이지 아웃에ㅑ
      사용될 수 있도록 bitmap에 used_index bit을 reset함 */
   bitmap_set (swap_bitmap, used_index, false);
-  lock_release (&rw_lock);
   lock_release (&swap_lock);
 }

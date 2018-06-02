@@ -153,13 +153,13 @@ struct page *alloc_page (enum palloc_flags flags) {
   memset (page, 0x00, sizeof (struct page));
   page->thread = thread_current ();
   page->kaddr = palloc_get_page (flags);
-  lock_release (&lru_lock);
   /* 물리 페이지 할당에 실패하면 페이지 풀이 가득 찬것이므로
      victim page를 선정해 swap out을 시킨 후 page를 할당한다. */
   if (page->kaddr == NULL) {
     page->kaddr = try_to_free_pages (flags);
   }
   ASSERT (page->kaddr);
+  lock_release (&lru_lock);
   return page;
 }
 
