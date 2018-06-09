@@ -281,11 +281,13 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       if (chunk_size <= 0)
         break;
 
+      /* 한 block을 모두 꽉채워 write하는 경우  */
       if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
         {
           /* Write full sector directly to disk. */
           block_write (fs_device, sector_idx, buffer + bytes_written);
         }
+      /* 섹터의 일부만 write하는 경우 sector의 일부만 write할 수 없기 때문에 이렇게 처리함*/
       else 
         {
           /* We need a bounce buffer. */
@@ -301,7 +303,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
              first.  Otherwise we start with a sector of all zeros. */
           if (sector_ofs > 0 || chunk_size < sector_left) 
             block_read (fs_device, sector_idx, bounce);
-          else
+          else // sector offset이 0인 경우 
             memset (bounce, 0, BLOCK_SECTOR_SIZE);
           memcpy (bounce + sector_ofs, buffer + bytes_written, chunk_size);
           block_write (fs_device, sector_idx, bounce);
