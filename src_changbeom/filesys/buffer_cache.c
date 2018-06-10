@@ -110,10 +110,12 @@ bool bc_write (block_sector_t sector_idx, void *buffer,
   bce = bc_lookup (sector_idx);
   if (bce == NULL) {
     bce = bc_select_victim ();
+    lock_acquire (&bce->bc_lock);
+    block_read (fs_device, sector_idx, bce->bc_entry);
+    lock_release (&bce->bc_lock);
   }
 
   lock_acquire (&bce->bc_lock);
-  block_read (fs_device, sector_idx, bce->bc_entry);
   memcpy (bce->bc_entry + sector_ofs, buffer, bytes_written);
   bce->dirty = true;
   bce->clock_bit = false;
