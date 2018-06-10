@@ -9,7 +9,7 @@
 
 /* buffer cache entry의 개수 (32kb) */
 #define BUFFER_CACHE_SIZE 32*1024
-#define BUFFER_CACHE_ENTRY_NB (32*1024 / BLOCK_SECTOR_SIZE)
+#define BUFFER_CACHE_ENTRY_NB (BUFFER_CACHE_SIZE / BLOCK_SECTOR_SIZE)
 
 /* buffer cache 메모리 영역을 가리킴 */
 void *p_buffer_cache = NULL;
@@ -58,4 +58,16 @@ void bc_term (void) {
   bc_flush_all_entries ();
   /*  buffer cache 영역 할당 해제 */
   palloc_free_multiple (p_buffer_cache, DIV_ROUND_UP (BUFFER_CACHE_SIZE, PGSIZE));
+}
+
+struct buffer_head* bc_lookup (block_sector_t sector) {
+  /*  buffe_head를 순회하며, 전달받은 sector 값과 동일한 sector 값을 갖는 buffer cache entry가 있는지 확인 */
+  int i = 0;
+  for (i = 0; i < BUFFER_CACHE_ENTRY_NB; i++) {
+    if (buffer_head_table[i].sector == sector) {
+      return &buffer_head_table[i];
+    }
+  }
+  /*  성공 : 찾은 buffer_head 반환, 실패 : NULL */
+  return NULL;
 }
