@@ -42,7 +42,7 @@ void bc_flush_entry (struct buffer_head *p_flush_entry) {
   lock_release (&p_flush_entry->bc_lock);
 }
 
-void bc_flush_all_entry (void) {
+void bc_flush_all_entries (void) {
   int i = 0;
   /*  전역변수 buffer_head를 순회하며, dirty인 entry는 block_write 함수를 호출하여 디스크로 flush */
   /*  디스크로 flush한 후, buffer_head의 dirty 값 update */
@@ -51,4 +51,11 @@ void bc_flush_all_entry (void) {
       bc_flush_entry (&buffer_head_table[i]);
     }
   }
+}
+
+void bc_term (void) {
+  /*  bc_flush_all_entries 함수를 호출하여 모든 buffer cache entry를 디스크로 flush */
+  bc_flush_all_entries ();
+  /*  buffer cache 영역 할당 해제 */
+  palloc_free_multiple (p_buffer_cache, DIV_ROUND_UP (BUFFER_CACHE_SIZE, PGSIZE));
 }
