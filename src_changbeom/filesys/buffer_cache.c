@@ -64,10 +64,35 @@ struct buffer_head* bc_lookup (block_sector_t sector) {
   /*  buffe_head를 순회하며, 전달받은 sector 값과 동일한 sector 값을 갖는 buffer cache entry가 있는지 확인 */
   int i = 0;
   for (i = 0; i < BUFFER_CACHE_ENTRY_NB; i++) {
-    if (buffer_head_table[i].sector == sector) {
+    if (buffer_head_table[i].sector == sector && buffer_head_table[i].in_use == true) {
       return &buffer_head_table[i];
     }
   }
   /*  성공 : 찾은 buffer_head 반환, 실패 : NULL */
   return NULL;
+}
+
+struct buffer_head* bc_select_victim (void) {
+  struct buffer_head *victim = NULL;
+  int i = 0;
+  /*  clock 알고리즘을 사용하여 victim entry를 선택 */
+  /*  buffer_head 전역변수를 순회하며 clock_bit 변수를 검사 */
+  /*  victim entry에 해당하는 buffer_head 값 update */
+  for (i = 0; true; i = (i + 1) % BUFFER_CACHE_ENTRY_NB) {
+    if (buffer_head_table[i].in_use == true) {
+      if (buffer_head_table[i].clock_bit == true) {
+        buffer_head_table[i].clock_bit = false;
+        victim = &buffer_head_table[i];
+        break;
+      } else {
+        buffer_head_table[i].clock_bit = true;
+      }
+    }
+  }
+  /*  선택된 victim entry가 dirty일 경우, 디스크로 flush */
+  if (victim->dirty == true) {
+    bc_flush_entry (victim);
+  }
+  /*  victim entry를 return */
+  return victim;
 }
