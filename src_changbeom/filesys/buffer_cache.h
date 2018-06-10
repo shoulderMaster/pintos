@@ -2,6 +2,7 @@
 #define FILESYS_BUFFER_CACHE_H
 
 #include "devices/block.h"
+#include "threads/synch.h"
 
 
 /* buffer cache의 각 entry를 관리하기 위한 구조체 */
@@ -18,6 +19,8 @@ struct buffer_head {
   struct lock bc_lock;
   /* buffer cache entry를 가리키기 위한 데이터 포인터 */   
   void *bc_entry;
-}
+};
+
+void bc_init (void);
 
 #endif
