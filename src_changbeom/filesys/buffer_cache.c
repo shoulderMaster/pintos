@@ -87,12 +87,37 @@ struct buffer_head* bc_select_victim (void) {
       } else {
         buffer_head_table[i].clock_bit = true;
       }
+    } else {
+      victim = &buffer_head_table[i];
+      break;
     }
   }
+  ASSERT (victim == NULL);
   /*  선택된 victim entry가 dirty일 경우, 디스크로 flush */
   if (victim->dirty == true) {
     bc_flush_entry (victim);
   }
   /*  victim entry를 return */
   return victim;
+}
+
+bool bc_write (block_sector_t sector_idx, void *buffer,
+    off_t bytes_written, int chunk_size, int sector_ofs) {
+  bool success = false;
+  struct buffer_head *bce = NULL;
+  /*  sector_idx를 buffer_head에서 검색하여 buffer에 복사(구현)*/
+  bce = bc_lookup (sector_idx);
+  if (bce == NULL) {
+    bce = bc_select_victim ();
+  }
+
+  lock_acquire (&bce->bc_lock);
+  block_read (fs_device, sector_idx, bce->bc_entry);
+  memcpy (bce->bc_entry + sector_ofs, buffer, bytes_written);
+  bce->dirty = true;
+  bce->clock_bit = false;
+  lock_release (&bce->bc_lock);
+  success = true;
+  /*  update buffer head (구현) */
+  return success;
 }
