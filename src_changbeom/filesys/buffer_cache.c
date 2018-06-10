@@ -29,6 +29,7 @@ void bc_init (void) {
   memset (buffer_head_table, 0x00, sizeof (struct buffer_head));
   for (i = 0; i < BUFFER_CACHE_ENTRY_NB; i++) {
     lock_init (&buffer_head_table[i].bc_lock);
+    buffer_head_table[i].bc_entry = p_buffer_cache + i*BLOCK_SIZE;
   }
 }
 
