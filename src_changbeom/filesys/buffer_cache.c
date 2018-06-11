@@ -71,41 +71,44 @@ struct buffer_head* bc_lookup (block_sector_t sector) {
   /*  buffe_head를 순회하며, 전달받은 sector 값과 동일한 sector 값을 갖는 buffer cache entry가 있는지 확인 */
   struct buffer_head *bch = NULL;
   int i = 0;
+  /* bc_lock은 캐시될 버퍼가 결정되는 과정이 atomic하게 수행되어질 수 있도록 유지되어야함. */
   lock_acquire (&bc_lock);
   for (i = 0; i < BUFFER_CACHE_ENTRY_NB; i++) {
     if (buffer_head_table[i].sector == sector && buffer_head_table[i].in_use == true) {
       bch = &buffer_head_table[i];
+      /* 캐시될 버퍼가 정해지고 해당 캐피 버퍼에 read, write가 완료될 때까지 buffer head lock유지 */
+      lock_acquire (&bch->lock);
+      /* 캐시될 버퍼가 결정되었으므로 bc_lock을 해제함 */
+      lock_release (&bc_lock);
       break;
     }
   }
   /*  성공 : 찾은 buffer_head 반환, 실패 : NULL */
-  lock_release (&bc_lock);
   return bch;
 }
 
 struct buffer_head* bc_select_victim (void) {
   struct buffer_head *victim = NULL;
+  ASSERT (lock_held_by_current_thread (&bc_lock));
   /*  clock 알고리즘을 사용하여 victim entry를 선택 */
   /*  buffer_head 전역변수를 순회하며 clock_bit 변수를 검사 */
   /*  victim entry에 해당하는 buffer_head 값 update */
   for (; true; clock_hand = (clock_hand + 1) % BUFFER_CACHE_ENTRY_NB) {
     struct buffer_head *bhe = &buffer_head_table[clock_hand];
-    lock_acquire (&bhe->lock);
     if (bhe->in_use == false || bhe->clock_bit == true) {
       victim = bhe;
       clock_hand = (clock_hand + 1) % BUFFER_CACHE_ENTRY_NB;
       break;
     }
     bhe->clock_bit = true;
-    lock_release (&bhe->lock);
     continue;
   }
-  ASSERT (victim != NULL);
+  /* 해당 cache buffer에 read, write가 완료될 때 까지 lock유지 */
+  lock_acquire (&victim->lock);
   /*  선택된 victim entry가 dirty일 경우, 디스크로 flush */
   if (victim->in_use == true && victim->dirty == true) {
     bc_flush_entry (victim);
   }
-  lock_release (&victim->lock);
   /*  victim entry를 return */
   return victim;
 }
@@ -118,13 +121,13 @@ bool bc_write (block_sector_t sector_idx, void *buffer,
   bch = bc_lookup (sector_idx);
   if (bch == NULL) {
     bch = bc_select_victim ();
-    lock_acquire (&bch->lock);
-    bch->sector = bch;
+    ASSERT (lock_held_by_current_thread (&bch->lock));
+    bch->sector = sector_idx;
     block_read (fs_device, sector_idx, bch->bc_entry);
-    lock_release (&bch->lock);
+    lock_release (&bc_lock);
   }
+  ASSERT (lock_held_by_current_thread (&bch->lock));
 
-  lock_acquire (&bch->lock);
   memcpy (bch->bc_entry + sector_ofs, buffer + bytes_written, chunk_size);
   bch->dirty = true;
   bch->clock_bit = false;
