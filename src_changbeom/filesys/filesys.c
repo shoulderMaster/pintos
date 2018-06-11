@@ -6,6 +6,7 @@
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "filesys/buffer_cache.h"
 
 /* Partition that contains the file system. */
 struct block *fs_device;
@@ -21,6 +22,8 @@ filesys_init (bool format)
   if (fs_device == NULL)
     PANIC ("No file system device found, can't initialize file system.");
 
+  // buffer cache 초기화. 파일시스템 초기화 하기 전에 먼저 해줘야함
+  bc_init ();
   inode_init ();
   free_map_init ();
 

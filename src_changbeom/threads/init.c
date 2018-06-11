@@ -36,7 +36,6 @@
 #include "devices/ide.h"
 #include "filesys/filesys.h"
 #include "filesys/fsutil.h"
-#include "filesys/buffer_cache.h"
 #endif
 
 /* Page directory with kernel mappings only. */
@@ -128,7 +127,6 @@ main (void)
   filesys_init (format_filesys);
   swap_init ();
   lru_list_init ();
-  bc_init ();
 #endif
 
   printf ("Boot complete.\n");
