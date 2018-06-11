@@ -13,6 +13,7 @@
 
 /* buffer cache 메모리 영역을 가리킴 */
 void *p_buffer_cache = NULL;
+struct lock bc_lock;
 
 /* buffer head 배열 */
 struct buffer_head buffer_head_table[BUFFER_CACHE_ENTRY_NB];
@@ -26,6 +27,7 @@ void bc_init (void) {
   /*  p_buffer_cache가 buffer cache 영역 포인팅 */
   p_buffer_cache = palloc_get_multiple (PAL_ZERO, DIV_ROUND_UP (BUFFER_CACHE_SIZE, PGSIZE));
   ASSERT (p_buffer_cache != NULL);
+  lock_init (&bc_lock);
   /*  전역변수 buffer_head 자료구조 초기화 */
   memset (buffer_head_table, 0x00, sizeof (struct buffer_head)*BUFFER_CACHE_ENTRY_NB);
   for (i = 0; i < BUFFER_CACHE_ENTRY_NB; i++) {
