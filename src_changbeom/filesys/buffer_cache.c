@@ -69,14 +69,18 @@ void bc_term (void) {
 
 struct buffer_head* bc_lookup (block_sector_t sector) {
   /*  buffe_head를 순회하며, 전달받은 sector 값과 동일한 sector 값을 갖는 buffer cache entry가 있는지 확인 */
+  struct buffer_head *bch = NULL;
   int i = 0;
+  lock_acquire (&bc_lock);
   for (i = 0; i < BUFFER_CACHE_ENTRY_NB; i++) {
     if (buffer_head_table[i].sector == sector && buffer_head_table[i].in_use == true) {
-      return &buffer_head_table[i];
+      bch = &buffer_head_table[i];
+      break;
     }
   }
   /*  성공 : 찾은 buffer_head 반환, 실패 : NULL */
-  return NULL;
+  lock_release (&bc_lock);
+  return bch;
 }
 
 struct buffer_head* bc_select_victim (void) {
