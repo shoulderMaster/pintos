@@ -35,6 +35,8 @@ void bc_init (void) {
 }
 
 void bc_flush_entry (struct buffer_head *p_flush_entry) {
+  ASSERT (p_flush_entry->dirty == true);
+  ASSERT (p_flush_entry->in_use == true);
   /*  block_write을 호출하여, 인자로 전달받은 buffer cache entry의 데이터를 디스크로 flush */
   lock_acquire (&p_flush_entry->lock);
   block_write (fs_device, p_flush_entry->sector, p_flush_entry->bc_entry);
