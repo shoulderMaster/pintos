@@ -27,7 +27,7 @@ void bc_init (void) {
   p_buffer_cache = palloc_get_multiple (PAL_ZERO, DIV_ROUND_UP (BUFFER_CACHE_SIZE, PGSIZE));
   ASSERT (p_buffer_cache != NULL);
   /*  전역변수 buffer_head 자료구조 초기화 */
-  memset (buffer_head_table, 0x00, sizeof (struct buffer_head));
+  memset (buffer_head_table, 0x00, sizeof (struct buffer_head)*BUFFER_CACHE_ENTRY_NB);
   for (i = 0; i < BUFFER_CACHE_ENTRY_NB; i++) {
     lock_init (&buffer_head_table[i].lock);
     buffer_head_table[i].bc_entry = p_buffer_cache + i*BLOCK_SECTOR_SIZE;
