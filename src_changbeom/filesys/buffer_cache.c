@@ -37,13 +37,12 @@ void bc_init (void) {
 void bc_flush_entry (struct buffer_head *p_flush_entry) {
   ASSERT (p_flush_entry->dirty == true);
   ASSERT (p_flush_entry->in_use == true);
+  ASSERT (lock_held_by_current_thread (&p_flush_entry->lock));
   /*  block_write을 호출하여, 인자로 전달받은 buffer cache entry의 데이터를 디스크로 flush */
-  lock_acquire (&p_flush_entry->lock);
   block_write (fs_device, p_flush_entry->sector, p_flush_entry->bc_entry);
 
   /*  buffer_head의 dirty 값 update */
   p_flush_entry->dirty = false;
-  lock_release (&p_flush_entry->lock);
 }
 
 void bc_flush_all_entries (void) {
@@ -52,7 +51,9 @@ void bc_flush_all_entries (void) {
   /*  디스크로 flush한 후, buffer_head의 dirty 값 update */
   for (i = 0; i < BUFFER_CACHE_ENTRY_NB; i++) {
     if (buffer_head_table[i].dirty == true && buffer_head_table[i].in_use == true) {
+      lock_acquire (&buffer_head_table[i].lock);
       bc_flush_entry (&buffer_head_table[i]);
+      lock_release (&buffer_head_table[i].lock);
     }
   }
 }
@@ -82,24 +83,23 @@ struct buffer_head* bc_select_victim (void) {
   /*  buffer_head 전역변수를 순회하며 clock_bit 변수를 검사 */
   /*  victim entry에 해당하는 buffer_head 값 update */
   for (; true; clock_hand = (clock_hand + 1) % BUFFER_CACHE_ENTRY_NB) {
-    if (buffer_head_table[clock_hand].in_use == true) {
-      if (buffer_head_table[clock_hand].clock_bit == true) {
-        buffer_head_table[clock_hand].clock_bit = false;
-        victim = &buffer_head_table[clock_hand];
-        break;
-      } else {
-        buffer_head_table[clock_hand].clock_bit = true;
-      }
-    } else {
-      victim = &buffer_head_table[clock_hand];
+    struct buffer_head *bhe = &buffer_head_table[clock_hand];
+    lock_acquire (&bhe->lock);
+    if (bhe->in_use == false || bhe->clock_bit == true) {
+      victim = bhe;
+      clock_hand = (clock_hand + 1) % BUFFER_CACHE_ENTRY_NB;
       break;
     }
+    bhe->clock_bit = true;
+    lock_release (&bhe->lock);
+    continue;
   }
   ASSERT (victim != NULL);
   /*  선택된 victim entry가 dirty일 경우, 디스크로 flush */
   if (victim->in_use == true && victim->dirty == true) {
     bc_flush_entry (victim);
   }
+  lock_release (&victim->lock);
   /*  victim entry를 return */
   return victim;
 }
