@@ -29,19 +29,19 @@ void bc_init (void) {
   /*  전역변수 buffer_head 자료구조 초기화 */
   memset (buffer_head_table, 0x00, sizeof (struct buffer_head));
   for (i = 0; i < BUFFER_CACHE_ENTRY_NB; i++) {
-    lock_init (&buffer_head_table[i].bc_lock);
+    lock_init (&buffer_head_table[i].lock);
     buffer_head_table[i].bc_entry = p_buffer_cache + i*BLOCK_SECTOR_SIZE;
   }
 }
 
 void bc_flush_entry (struct buffer_head *p_flush_entry) {
   /*  block_write을 호출하여, 인자로 전달받은 buffer cache entry의 데이터를 디스크로 flush */
-  lock_acquire (&p_flush_entry->bc_lock);
+  lock_acquire (&p_flush_entry->lock);
   block_write (fs_device, p_flush_entry->sector, p_flush_entry->bc_entry);
 
   /*  buffer_head의 dirty 값 update */
   p_flush_entry->dirty = false;
-  lock_release (&p_flush_entry->bc_lock);
+  lock_release (&p_flush_entry->lock);
 }
 
 void bc_flush_all_entries (void) {
@@ -110,17 +110,17 @@ bool bc_write (block_sector_t sector_idx, void *buffer,
   bch = bc_lookup (sector_idx);
   if (bch == NULL) {
     bch = bc_select_victim ();
-    lock_acquire (&bch->bc_lock);
+    lock_acquire (&bch->lock);
     bch->sector = bch;
     block_read (fs_device, sector_idx, bch->bc_entry);
-    lock_release (&bch->bc_lock);
+    lock_release (&bch->lock);
   }
 
-  lock_acquire (&bch->bc_lock);
+  lock_acquire (&bch->lock);
   memcpy (bch->bc_entry + sector_ofs, buffer + bytes_written, chunk_size);
   bch->dirty = true;
   bch->clock_bit = false;
-  lock_release (&bch->bc_lock);
+  lock_release (&bch->lock);
   success = true;
   /*  update buffer head (구현) */
   return success;
@@ -139,7 +139,7 @@ bool bc_read (block_sector_t sector_idx, void *buffer,
     bch->sector = sector_idx;
   }
   /*  block_read 함수를 이용해, 디스크 블록 데이터를 buffer cache로 read */
-  lock_acquire (&bch->bc_lock);
+  lock_acquire (&bch->lock);
   block_read (fs_device, sector_idx, bch->bc_entry);
   /*  memcpy 함수를 통해, buffer에 디스크 블록 데이터를 복사 */
   memcpy (buffer + bytes_read, bch->bc_entry + sector_ofs, chunk_size);
@@ -148,6 +148,6 @@ bool bc_read (block_sector_t sector_idx, void *buffer,
   bch->clock_bit = false;
   bch->dirty = false;
 
-  lock_release (&bch->bc_lock);
+  lock_release (&bch->lock);
   return true;
 }

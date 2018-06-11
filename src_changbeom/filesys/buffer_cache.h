@@ -17,7 +17,7 @@ struct buffer_head {
   /* clock algorithm을 위한 clock bit */  
   bool clock_bit;
   /* lock 변수 (struct lock) */  
-  struct lock bc_lock;
+  struct lock lock;
   /* buffer cache entry를 가리키기 위한 데이터 포인터 */   
   void *bc_entry;
 };
