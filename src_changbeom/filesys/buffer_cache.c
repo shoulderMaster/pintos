@@ -25,6 +25,7 @@ void bc_init (void) {
   /*  Allocation buffer cache in Memory */
   /*  p_buffer_cache가 buffer cache 영역 포인팅 */
   p_buffer_cache = palloc_get_multiple (PAL_ZERO, DIV_ROUND_UP (BUFFER_CACHE_SIZE, PGSIZE));
+  ASSERT (p_buffer_cache != NULL);
   /*  전역변수 buffer_head 자료구조 초기화 */
   memset (buffer_head_table, 0x00, sizeof (struct buffer_head));
   for (i = 0; i < BUFFER_CACHE_ENTRY_NB; i++) {
@@ -75,21 +76,20 @@ struct buffer_head* bc_lookup (block_sector_t sector) {
 
 struct buffer_head* bc_select_victim (void) {
   struct buffer_head *victim = NULL;
-  int i = 0;
   /*  clock 알고리즘을 사용하여 victim entry를 선택 */
   /*  buffer_head 전역변수를 순회하며 clock_bit 변수를 검사 */
   /*  victim entry에 해당하는 buffer_head 값 update */
-  for (i = 0; true; i = (i + 1) % BUFFER_CACHE_ENTRY_NB) {
-    if (buffer_head_table[i].in_use == true) {
-      if (buffer_head_table[i].clock_bit == true) {
-        buffer_head_table[i].clock_bit = false;
-        victim = &buffer_head_table[i];
+  for (; true; clock_hand = (clock_hand + 1) % BUFFER_CACHE_ENTRY_NB) {
+    if (buffer_head_table[clock_hand].in_use == true) {
+      if (buffer_head_table[clock_hand].clock_bit == true) {
+        buffer_head_table[clock_hand].clock_bit = false;
+        victim = &buffer_head_table[clock_hand];
         break;
       } else {
-        buffer_head_table[i].clock_bit = true;
+        buffer_head_table[clock_hand].clock_bit = true;
       }
     } else {
-      victim = &buffer_head_table[i];
+      victim = &buffer_head_table[clock_hand];
       break;
     }
   }
