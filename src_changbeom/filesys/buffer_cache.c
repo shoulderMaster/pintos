@@ -49,7 +49,7 @@ void bc_flush_all_entries (void) {
   /*  전역변수 buffer_head를 순회하며, dirty인 entry는 block_write 함수를 호출하여 디스크로 flush */
   /*  디스크로 flush한 후, buffer_head의 dirty 값 update */
   for (i = 0; i < BUFFER_CACHE_ENTRY_NB; i++) {
-    if (buffer_head_table[i].dirty == true) {
+    if (buffer_head_table[i].dirty == true && buffer_head_table[i].in_use == true) {
       bc_flush_entry (&buffer_head_table[i]);
     }
   }
