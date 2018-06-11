@@ -3,6 +3,7 @@
 
 #include "devices/block.h"
 #include "threads/synch.h"
+#include "filesys/off_t.h"
 
 
 /* buffer cache의 각 entry를 관리하기 위한 구조체 */
@@ -22,5 +23,7 @@ struct buffer_head {
 };
 
 void bc_init (void);
+bool bc_read (block_sector_t sector_idx, void *buffer, off_t bytes_read, int chunk_size, int sector_ofs);
+bool bc_write (block_sector_t sector_idx, void *buffer, off_t bytes_written, int chunk_size, int sector_ofs);
 
 #endif

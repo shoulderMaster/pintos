@@ -93,9 +93,9 @@ struct buffer_head* bc_select_victim (void) {
       break;
     }
   }
-  ASSERT (victim == NULL);
+  ASSERT (victim != NULL);
   /*  선택된 victim entry가 dirty일 경우, 디스크로 flush */
-  if (victim->dirty == true) {
+  if (victim->in_use == true && victim->dirty == true) {
     bc_flush_entry (victim);
   }
   /*  victim entry를 return */
@@ -111,12 +111,13 @@ bool bc_write (block_sector_t sector_idx, void *buffer,
   if (bch == NULL) {
     bch = bc_select_victim ();
     lock_acquire (&bch->bc_lock);
+    bch->sector = bch;
     block_read (fs_device, sector_idx, bch->bc_entry);
     lock_release (&bch->bc_lock);
   }
 
   lock_acquire (&bch->bc_lock);
-  memcpy (bch->bc_entry + sector_ofs, buffer, bytes_written);
+  memcpy (bch->bc_entry + sector_ofs, buffer + bytes_written, chunk_size);
   bch->dirty = true;
   bch->clock_bit = false;
   lock_release (&bch->bc_lock);
@@ -141,7 +142,7 @@ bool bc_read (block_sector_t sector_idx, void *buffer,
   lock_acquire (&bch->bc_lock);
   block_read (fs_device, sector_idx, bch->bc_entry);
   /*  memcpy 함수를 통해, buffer에 디스크 블록 데이터를 복사 */
-  memcpy (buffer, bch->bc_entry + sector_ofs, chunk_size);
+  memcpy (buffer + bytes_read, bch->bc_entry + sector_ofs, chunk_size);
   /*  buffer_head의 clock bit을 setting */
   bch->in_use = true;
   bch->clock_bit = false;
