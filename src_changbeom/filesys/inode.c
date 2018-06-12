@@ -90,14 +90,16 @@ inode_create (block_sector_t sector, off_t length)
       disk_inode->magic = INODE_MAGIC;
       if (free_map_allocate (sectors, &disk_inode->start)) 
         {
-          block_write (fs_device, sector, disk_inode);
+          //block_write (fs_device, sector, disk_inode);
+          bc_write (sector, disk_inode, 0, BLOCK_SECTOR_SIZE, 0);
           if (sectors > 0) 
             {
               static char zeros[BLOCK_SECTOR_SIZE];
               size_t i;
               
               for (i = 0; i < sectors; i++) 
-                block_write (fs_device, disk_inode->start + i, zeros);
+                bc_write (disk_inode->start + i, zeros, 0, BLOCK_SECTOR_SIZE, 0);
+                //block_write (fs_device, disk_inode->start + i, zeros);
             }
           success = true; 
         } 
@@ -138,7 +140,8 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
-  block_read (fs_device, inode->sector, &inode->data);
+  //block_read (fs_device, inode->sector, &inode->data);
+  bc_read (inode->sector, &inode->data, 0, BLOCK_SECTOR_SIZE, 0);
   return inode;
 }
 
@@ -203,7 +206,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 {
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
-  uint8_t *bounce = NULL;
+  //uint8_t *bounce = NULL;
 
   while (size > 0) 
     {
@@ -246,7 +249,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       offset += chunk_size;
       bytes_read += chunk_size;
     }
-  free (bounce);
+  //free (bounce);
 
   return bytes_read;
 }
@@ -262,7 +265,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 {
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
-  uint8_t *bounce = NULL;
+  //uint8_t *bounce = NULL;
 
   if (inode->deny_write_cnt)
     return 0;
@@ -313,7 +316,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       offset += chunk_size;
       bytes_written += chunk_size;
     }
-  free (bounce);
+  //free (bounce);
 
   return bytes_written;
 }
