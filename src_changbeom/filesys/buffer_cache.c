@@ -152,14 +152,14 @@ bool bc_read (block_sector_t sector_idx, void *buffer,
     lock_release (&bc_lock);
     /*  block_read 함수를 이용해, 디스크 블록 데이터를 buffer cache로 read */
     block_read (fs_device, sector_idx, bch->bc_entry);
+    bch->in_use = true;
+    bch->dirty = false;
   }
   ASSERT (lock_held_by_current_thread (&bch->lock));
   /*  memcpy 함수를 통해, buffer에 디스크 블록 데이터를 복사 */
   memcpy (buffer + bytes_read, bch->bc_entry + sector_ofs, chunk_size);
   /*  buffer_head의 clock bit을 setting */
-  bch->in_use = true;
   bch->clock_bit = false;
-  bch->dirty = false;
 
   lock_release (&bch->lock);
   return true;
