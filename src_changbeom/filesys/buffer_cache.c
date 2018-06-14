@@ -6,10 +6,11 @@
 #include "threads/vaddr.h"
 #include "lib/string.h"
 #include "threads/synch.h"
+#include <stdio.h>
 
 /* buffer cache entry의 개수 (32kb) */
 #define BUFFER_CACHE_SIZE 32*1024
-#define BUFFER_CACHE_ENTRY_NB (BUFFER_CACHE_SIZE / BLOCK_SECTOR_SIZE)
+#define BUFFER_CACHE_ENTRY_NB (BUFFER_CACHE_SIZE / BLOCK_SECTOR_SIZE)  //64
 
 /* buffer cache 메모리 영역을 가리킴 */
 void *p_buffer_cache = NULL;
@@ -115,6 +116,7 @@ struct buffer_head* bc_select_victim (void) {
 
 bool bc_write (block_sector_t sector_idx, void *buffer,
     off_t bytes_written, int chunk_size, int sector_ofs) {
+  printf ("bc_wrtite sector_idx : %d, buffer : %p, bytes_read : %d, chunk_size : %d, sector_ofs : %d\n", sector_idx, buffer, bytes_written, chunk_size, sector_ofs);
   bool success = false;
   struct buffer_head *bch = NULL;
   /*  sector_idx를 buffer_head에서 검색하여 buffer에 복사(구현)*/
@@ -123,12 +125,14 @@ bool bc_write (block_sector_t sector_idx, void *buffer,
     bch = bc_select_victim ();
     ASSERT (lock_held_by_current_thread (&bch->lock));
     bch->sector = sector_idx;
+    bch->in_use = true;
     block_read (fs_device, sector_idx, bch->bc_entry);
     lock_release (&bc_lock);
   }
   ASSERT (lock_held_by_current_thread (&bch->lock));
 
   memcpy (bch->bc_entry + sector_ofs, buffer + bytes_written, chunk_size);
+  printf ("memcpy dst : %p, src : %p , size : %d\n", bch->bc_entry + sector_ofs, buffer + bytes_written, chunk_size);
   bch->dirty = true;
   bch->clock_bit = false;
   lock_release (&bch->lock);
@@ -139,6 +143,7 @@ bool bc_write (block_sector_t sector_idx, void *buffer,
 
 bool bc_read (block_sector_t sector_idx, void *buffer,
               off_t bytes_read, int chunk_size, int sector_ofs) {
+  printf ("bc_read sector_idx : %d, buffer : %p, bytes_read : %d, chunk_size : %d, sector_ofs : %d\n", sector_idx, buffer, bytes_read, chunk_size, sector_ofs);
   /*  sector_idx를 buffer_head에서 검색 (bc_lookup 함수 이용) */
   struct buffer_head *bch = NULL;
   bch = bc_lookup (sector_idx);
@@ -156,8 +161,10 @@ bool bc_read (block_sector_t sector_idx, void *buffer,
     bch->dirty = false;
   }
   ASSERT (lock_held_by_current_thread (&bch->lock));
+  ASSERT (bch->in_use == true);
   /*  memcpy 함수를 통해, buffer에 디스크 블록 데이터를 복사 */
   memcpy (buffer + bytes_read, bch->bc_entry + sector_ofs, chunk_size);
+  printf ("memcpy src : %p, dst : %p , size : %d\n", bch->bc_entry + sector_ofs, buffer + bytes_read, chunk_size);
   /*  buffer_head의 clock bit을 setting */
   bch->clock_bit = false;
 
