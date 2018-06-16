@@ -52,15 +52,22 @@ bytes_to_sectors (off_t size)
 }
 
 /* In-memory inode. */
-struct inode 
-  {
+struct inode {
     struct list_elem elem;              /* Element in inode list. */
     block_sector_t sector;              /* Sector number of disk location. */
     int open_cnt;                       /* Number of openers. */
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
-    struct inode_disk data;             /* Inode content. */
-  };
+    struct lock extend_lock;
+};
+
+static bool get_disk_inode (const struct inode *inode, struct inode_disk *inode_disk) {
+  /*  inode->sector에 해당하는 on-disk inode를 buffer cache에서
+      읽어 inode_disk에 저장 (bc_read() 함수 사용) */
+  bc_read (inode->sector, inode_disk, 0, sizeof (struct inode_disk), 0);
+  /*  true 반환 */
+  return true;
+}
 
 /* Returns the block device sector that contains byte offset POS
    within INODE.
