@@ -29,7 +29,13 @@ enum direct_t {
   INDIRECT,
   DOUBLE_INDIRECT,
   OUT_LIMIT
-}
+};
+
+struct sector_location {
+  enum direct_t directness;
+  int index1;
+  int index2;
+};
 
 /* Returns the number of sectors to allocate for an inode SIZE
    bytes long. */
