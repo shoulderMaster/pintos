@@ -69,6 +69,27 @@ static bool get_disk_inode (const struct inode *inode, struct inode_disk *inode_
   return true;
 }
 
+static void locate_byte (off_t pos, struct sector_location *sec_loc)
+{
+  off_t pos_sector = pos / BLOCK_SECTOR_SIZE;
+  /*  Direct 방식일 경우 */
+  if (pos_sector < DIRECT_BLOCK_ENTRIES) {
+    //sec_loc 자료구조의 변수 값 업데이트(구현)
+    sec_loc->directness = NORMAL_DIRECT;
+    sec_loc->index1 = pos_sector;
+  } else if (pos_sector < (off_t)(INDIRECT_BLOCK_ENTRIES + DIRECT_BLOCK_ENTRIES)) {
+    sec_loc->directness = INDIRECT;
+    sec_loc->index1 = (pos_sector - DIRECT_BLOCK_ENTRIES);
+  } else if (pos_sector < (off_t)(INDIRECT_BLOCK_ENTRIES * (INDIRECT_BLOCK_ENTRIES + 1) + DIRECT_BLOCK_ENTRIES)) {
+    sec_loc->directness = DOUBLE_INDIRECT;
+    sec_loc->index1 = (pos_sector - (DIRECT_BLOCK_ENTRIES + INDIRECT_BLOCK_ENTRIES)) / INDIRECT_BLOCK_ENTRIES;
+    sec_loc->index2 = (pos_sector - (DIRECT_BLOCK_ENTRIES + INDIRECT_BLOCK_ENTRIES)) % INDIRECT_BLOCK_ENTRIES;
+  } else {
+    sec_loc->directness = OUT_LIMIT;
+  }
+  return;
+}
+
 /* Returns the block device sector that contains byte offset POS
    within INODE.
    Returns -1 if INODE does not contain data for a byte at offset
