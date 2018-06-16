@@ -13,6 +13,8 @@
 
 /* direct_map_table의 엔트리 개수 */
 #define DIRECT_BLOCK_ENTRIES 124
+/* indirect_map_table의 엔트리 개수 */
+#define INDIRECT_BLOCK_ENTRIES (BLOCK_SECTOR_SIZE / sizeof (block_sector_t))
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
@@ -32,9 +34,13 @@ enum direct_t {
 };
 
 struct sector_location {
-  enum direct_t directness;
+  int directness;
   int index1;
   int index2;
+};
+
+struct inode_indirect_block {
+  block_sector_t map_table[INDIRECT_BLOCK_ENTRIES];
 };
 
 /* Returns the number of sectors to allocate for an inode SIZE
