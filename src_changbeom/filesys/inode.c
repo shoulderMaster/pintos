@@ -11,15 +11,18 @@
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
+/* direct_map_table의 엔트리 개수 */
+#define DIRECT_BLOCK_ENTRIES 124
+
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
-struct inode_disk
-  {
-    block_sector_t start;               /* First data sector. */
-    off_t length;                       /* File size in bytes. */
-    unsigned magic;                     /* Magic number. */
-    uint32_t unused[125];               /* Not used. */
-  };
+struct inode_disk {
+  off_t length;                       /* File size in bytes. */
+  block_sector_t direct_map_table[DIRECT_BLOCK_ENTRIES];
+  block_sector_t indirect_block_sec;
+  block_sector_t double_indirect_block_sec;
+  unsigned magic;                     /* Magic number. */
+};
 
 /* Returns the number of sectors to allocate for an inode SIZE
    bytes long. */
@@ -62,6 +65,7 @@ static struct list open_inodes;
 void
 inode_init (void) 
 {
+  ASSERT (sizeof (struct inode_disk) == BLOCK_SECTOR_SIZE);
   list_init (&open_inodes);
 }
 
