@@ -24,6 +24,13 @@ struct inode_disk {
   unsigned magic;                     /* Magic number. */
 };
 
+enum direct_t {
+  NORMAL_DIRECT,
+  INDIRECT,
+  DOUBLE_INDIRECT,
+  OUT_LIMIT
+}
+
 /* Returns the number of sectors to allocate for an inode SIZE
    bytes long. */
 static inline size_t
