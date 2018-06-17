@@ -90,6 +90,84 @@ static void locate_byte (off_t pos, struct sector_location *sec_loc)
   return;
 }
 
+static bool register_sector (struct inode_disk *inode_disk, 
+    block_sector_t new_sector, struct sector_location sec_loc) 
+{
+  struct inode_indirect_block *new_block = NULL, *double_indirect_directory_block = NULL;
+  bool to_write = false;
+  locate_byte (new_sector, &sec_loc);
+  switch (sec_loc.directness)
+  {
+    case NORMAL_DIRECT:
+      /*  inode_disk에 새로 할당받은 디스크 번호 업데이트 */
+      inode_disk->direct_map_table[sec_loc.index1] = new_sector;
+      break;
+
+    case INDIRECT:
+      new_block = (struct inode_indirect_block*)malloc (BLOCK_SECTOR_SIZE);
+      if (new_block == NULL)
+        return false;
+      /*  인덱스 블록에 새로 할당 받은 블록 번호 저장 */
+      if (inode_disk->indirect_block_sec == (block_sector_t)-1) {
+        if (!free_map_allocate (1, &inode_disk->indirect_block_sec))
+          return false;
+        memset (new_block, 0xFF, sizeof (struct inode_indirect_block));
+      } else {
+        bc_read (inode_disk->indirect_block_sec, new_block, 0, BLOCK_SECTOR_SIZE, 0);
+      }
+
+      new_block->map_table[sec_loc.index1] = new_sector;
+
+      /*  인덱스 블록을 buffer cache에 기록 */
+      bc_write (new_sector, new_block, 0, BLOCK_SECTOR_SIZE, 0);
+      break;
+
+    case DOUBLE_INDIRECT:
+      double_indirect_directory_block = (struct inode_indirect_block*)malloc (BLOCK_SECTOR_SIZE);
+      if (new_block == NULL)
+        return false;
+      /*  2차 인덱스 블록에 새로 할당 받은 블록 주소 저장 후,
+       각 인덱스 블록을 buffer cache에 기록 */
+      if (inode_disk->double_indirect_block_sec == (block_sector_t)-1) {
+        if (!free_map_allocate (1, &inode_disk->double_indirect_block_sec))
+          return false;
+        memset (double_indirect_directory_block, 0xFF, sizeof (struct inode_indirect_block));
+      } else {
+        bc_read (inode_disk->double_indirect_block_sec, double_indirect_directory_block, 0, sizeof (struct inode_indirect_block), 0);
+      }
+
+      new_block = (struct inode_indirect_block*)malloc (BLOCK_SECTOR_SIZE);
+      if (new_block == NULL)
+        return false;
+
+      if (double_indirect_directory_block->map_table[sec_loc.index1] == (block_sector_t)-1) {
+        if (!free_map_allocate (1, &double_indirect_directory_block->map_table[sec_loc.index1]))
+          return false;
+        memset (new_block, 0xFF, sizeof (struct inode_indirect_block));
+        to_write = true;
+      } else {
+        bc_read (double_indirect_directory_block->map_table[sec_loc.index1], new_block, 0, BLOCK_SECTOR_SIZE, 0);
+      }
+      
+      ASSERT (new_block->map_table[sec_loc.index2] == (block_sector_t)-1);
+      new_block->map_table[sec_loc.index2] = new_sector;
+
+      if (to_write == true) {
+        bc_write (inode_disk->double_indirect_block_sec, double_indirect_directory_block, 0, BLOCK_SECTOR_SIZE, 0);
+        free (double_indirect_directory_block);
+      }
+
+      /*  인덱스 블록을 buffer cache에 기록 */
+      bc_write (new_sector, new_block, 0, BLOCK_SECTOR_SIZE, 0);
+      break;
+
+    default:
+      return false;
+  }
+  free(new_block);
+  return true;
+}
+
 /* Returns the block device sector that contains byte offset POS
    within INODE.
    Returns -1 if INODE does not contain data for a byte at offset
