@@ -173,13 +173,64 @@ static bool register_sector (struct inode_disk *inode_disk,
    Returns -1 if INODE does not contain data for a byte at offset
    POS. */
 static block_sector_t
-byte_to_sector (const struct inode *inode, off_t pos) 
+byte_to_sector (const struct inode_disk *inode_disk, off_t pos) 
 {
-  ASSERT (inode != NULL);
-  if (pos < inode->data.length)
-    return inode->data.start + pos / BLOCK_SECTOR_SIZE;
-  else
-    return -1;
+  block_sector_t result_sec = -1;
+
+  if (pos < inode_disk->length) {
+    struct inode_indirect_block *ind_block;
+    struct sector_location sec_loc;
+    locate_byte(pos, &sec_loc); // 인덱스 블록 offset 계산
+
+    switch (sec_loc.directness) {
+
+      /*  Direct 방식일 경우 */
+      case NORMAL_DIRECT :
+        /*  on-disk inode의 direct_map_table에서 디스크 블록 번호를 얻음 */
+        result_sec = inode_disk->direct_map_table[sec_loc.index1];
+        break;
+
+        /*  Indirect 방식일 경우 */
+      case INDIRECT :
+        ind_block = (struct inode_indirect_block*)malloc (BLOCK_SECTOR_SIZE);
+        if (ind_block) {
+          /*  buffer cache에서 인덱스 블록을 읽어 옴 */
+          bc_read (inode_disk->indirect_block_sec, ind_block, 0, BLOCK_SECTOR_SIZE, 0);
+          
+          /*  인덱스 블록에서 디스크 블록 번호 확인 */
+          result_sec = ind_block->map_table[sec_loc.index1];
+        } else {
+          NOT_REACHED ();
+        }
+        free (ind_block);
+        break;
+
+        /*  Double indirect 방식일 경우 */
+      case DOUBLE_INDIRECT :
+        ind_block = (struct inode_indirect_block *)malloc (BLOCK_SECTOR_SIZE);
+        if (ind_block){
+          /*  1차 인덱스 블록을 buffer cache에서 읽음 */
+          bc_read (inode_disk->double_indirect_block_sec, ind_block, 0, BLOCK_SECTOR_SIZE, 0);
+
+          /*  2차 인덱스 블록을 buffer cache에서 읽음 */
+          ASSERT (ind_block->map_table[sec_loc.index1] != -1);
+          bc_read (ind_block->map_table[sec_loc.index1], ind_block, 0, BLOCK_SECTOR_SIZE, 0);
+
+          /*  2차 인덱스 블록에서 디스크 블록 번호 확인 */
+          result_sec = ind_block->map_table[sec_loc.index2];
+        } else {
+          NOT_REACHED ();
+        }
+        free (ind_block);
+        break;
+
+      default :
+        NOT_REACHED ();
+
+    }
+  }
+
+  return result_sec;
 }
 
 /* List of open inodes, so that opening a single inode twice
