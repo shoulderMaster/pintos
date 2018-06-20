@@ -233,6 +233,52 @@ byte_to_sector (const struct inode_disk *inode_disk, off_t pos)
   return result_sec;
 }
 
+bool inode_update_file_length (struct inode_disk* inode_disk, off_t start_pos, off_t end_pos) {
+
+  off_t size = end_pos - (start_pos - 1);
+  off_t offset = start_pos;
+  void *zeroes = NULL;
+  struct sector_location sec_loc;
+  memset (&sec_loc, 0x00, sizeof (struct sector_location));
+  zeroes = calloc (sizeof (char), BLOCK_SECTOR_SIZE);
+
+  /*  블록 단위로 loop을 수행하며 새로운 디스크 블록 할당 */
+  while (size > 0){
+
+    /*  디스크 블록 내 오프셋 계산 */
+    int sector_ofs = offset % BLOCK_SECTOR_SIZE;
+    int chunk_size = BLOCK_SECTOR_SIZE - sector_ofs;
+    off_t sector_idx = 0;
+
+    if (sector_ofs > 0) {
+      /*  블록 오프셋이 0보다 클 경우, 이미 할당된 블록 */
+    } else {
+      /*  새로운 디스크 블록을 할당 */
+      if (free_map_allocate (1, &sector_idx)) {
+        locate_byte (offset, &sec_loc);
+
+        /*  inode_disk에 새로 할당 받은 디스크 블록 번호 업데이트 */
+        if (!register_sector (inode_disk, sector_idx, sec_loc)) {
+          free (zeroes);
+          return false;
+        }
+
+      } else {
+        free (zeroes);
+        return false;
+      }
+      /*  새로운 디스크 블록을 0으로 초기화 */
+      bc_write (sector_idx, zeroes, 0, BLOCK_SECTOR_SIZE, 0);
+    }
+    /*  Advance. */
+    size -= chunk_size;
+    offset += chunk_size;
+
+  }
+  free (zeroes);
+  return true;
+}
+
 /* List of open inodes, so that opening a single inode twice
    returns the same `struct inode'. */
 static struct list open_inodes;
