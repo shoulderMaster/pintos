@@ -363,39 +363,29 @@ inode_create (block_sector_t sector, off_t length)
      one sector in size, and you should fix that. */
   ASSERT (sizeof *disk_inode == BLOCK_SECTOR_SIZE);
 
-  disk_inode = calloc (1, sizeof *disk_inode);
-  if (disk_inode != NULL)
-    {
-      size_t sectors = bytes_to_sectors (length);
-      disk_inode->length = length;
-      disk_inode->magic = INODE_MAGIC;
-/*       if (free_map_allocate (sectors, &disk_inode->start)) 
-        {
-          //block_write (fs_device, sector, disk_inode);
-          bc_write (sector, disk_inode, 0, BLOCK_SECTOR_SIZE, 0);
-          if (sectors > 0) 
-            {
-              static char zeros[BLOCK_SECTOR_SIZE];
-              size_t i;
-              
-              for (i = 0; i < sectors; i++) 
-                bc_write (disk_inode->start + i, zeros, 0, BLOCK_SECTOR_SIZE, 0);
-                //block_write (fs_device, disk_inode->start + i, zeros);
-            }
-          success = true; 
-        } 
-      free (disk_inode); */
-      if (length > 0) {
-        /*  length 만큼의 디스크 블록을 inode_updafe_file_length()를 호출하여 할당 */
-        inode_update_file_length (disk_inode, 0, length - 1);
-      }
-      /*  on—disk inode를 bc_write()를 통해buffer cache에 기록 */
-      bc_write (sector, disk_inode, 0, sizeof (struct inode_disk), 0);
-      /*  할당받은 disk_inode 변수 해제 */
-      free (disk_inode);
-      /*  success 변수 update */
-      success = true;
+  disk_inode = (struct inode_disk*)malloc (sizeof (struct inode_disk));
+
+  if (disk_inode != NULL) {
+
+    size_t sectors = bytes_to_sectors (length);
+    memset (disk_inode, 0xFF, sizeof (struct inode_disk));
+    disk_inode->length = length;
+    disk_inode->magic = INODE_MAGIC;
+
+    if (length > 0) {
+      /*  length 만큼의 디스크 블록을 inode_updafe_file_length()를 호출하여 할당 */
+      inode_update_file_length (disk_inode, 0, length - 1);
     }
+
+    /*  on—disk inode를 bc_write()를 통해buffer cache에 기록 */
+    bc_write (sector, disk_inode, 0, sizeof (struct inode_disk), 0);
+
+    /*  할당받은 disk_inode 변수 해제 */
+    free (disk_inode);
+
+    /*  success 변수 update */
+    success = true;
+  }
   return success;
 }
 
