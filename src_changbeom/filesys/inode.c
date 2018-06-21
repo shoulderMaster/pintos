@@ -279,7 +279,7 @@ bool inode_update_file_length (struct inode_disk* inode_disk, off_t start_pos, o
   return true;
 }
 
-static void free_inode_sectors (struct inode_disk *inode_disk){
+static void free_inode_sectors (struct inode_disk *inode_disk) {
   struct inode_indirect_block *ind_block_1 = NULL;
   struct inode_indirect_block *ind_block_2 = NULL;
   int i = 0, j = 0;
@@ -446,6 +446,7 @@ inode_get_inumber (const struct inode *inode)
 void
 inode_close (struct inode *inode) 
 {
+  struct inode_disk *disk_inode = (struct inode_disk*)malloc (sizeof (struct inode_disk));
   /* Ignore null pointer. */
   if (inode == NULL)
     return;
@@ -459,8 +460,16 @@ inode_close (struct inode *inode)
     /* Deallocate blocks if removed. */
     if (inode->removed) 
     {
+      /*  inode의 on-disk inode 획득(get_disk_inode() 이용) */
+      get_disk_inode (inode, disk_inode);
+      /*  디스크 블록 반환(free_inode_sectors() 이용) */
+      free_inode_sectors (disk_inode);
+      /*  on-disk inode 반환 (free_map_release() 이용) */
+      free_map_release (inode->sector, 1);
     }
 
+    /*  disk_inode 변수 할당 해제 (free() 이용) */
+    free (disk_inode);
     free (inode); 
   }
 }
