@@ -257,6 +257,8 @@ bool inode_update_file_length (struct inode_disk* inode_disk, off_t start_pos, o
       /*  새로운 디스크 블록을 할당 */
       if (free_map_allocate (1, &sector_idx)) {
         locate_byte (offset, &sec_loc);
+/*         printf ("offset : %-8d, sector_idx : %-5d, mode : %-3d, index1 : %-5d, index2 : %-5d\n",
+                 offset, sector_idx, sec_loc.directness, sec_loc.index1, sec_loc.index2); */
 
         /*  inode_disk에 새로 할당 받은 디스크 블록 번호 업데이트 */
         if (!register_sector (inode_disk, sector_idx, sec_loc)) {
@@ -289,17 +291,17 @@ static void free_inode_sectors (struct inode_disk *inode_disk) {
   ind_block_2 = (struct indirect_block_sec*)malloc (BLOCK_SECTOR_SIZE);
 
   /*  Double indirect 방식으로 할당된 블록 해지 */
-  if (inode_disk->double_indirect_block_sec > 0) {
+  if ((int)inode_disk->double_indirect_block_sec > (int)0) {
     /*  1차 인덱스 블록을 buffer cache에서 읽음 */
     bc_read (inode_disk->double_indirect_block_sec, ind_block_1, 0, BLOCK_SECTOR_SIZE, 0);
     i = 0;
     /*  1차 인덱스 블록을 통해 2차 인덱스 블록을 차례로 접근 */
-    while (ind_block_1->map_table[i] > 0) {
+    while ((int)ind_block_1->map_table[i] > 0) {
       /*  2차 인덱스 블록을 buffer cache에서 읽음 */
       j = 0;
       bc_read (ind_block_2->map_table[j], ind_block_2, 0, BLOCK_SECTOR_SIZE, 0);
       /*  2차 인덱스 블록에 저장된 디스크 블록 번호를 접근 */
-      while (ind_block_2->map_table[j] > 0) {
+      while ((int)ind_block_2->map_table[j] > 0) {
         /*  free_map 업데이틀 통해 디스크 블록 할당 해지 */
         free_map_release (ind_block_2->map_table[j], 1);
         j++;
@@ -312,22 +314,24 @@ static void free_inode_sectors (struct inode_disk *inode_disk) {
 
   /*  1차 인덱스 블록 할당 해지 */
   /*  Indirect 방식으로 할당된 디스크 블록 해지*/
-  if(inode_disk->indirect_block_sec > 0){
+  if ((int)inode_disk->indirect_block_sec > (int)0) {
     /*  인덱스 블록을 buffer cache에서 읽음 */
     bc_read (inode_disk->indirect_block_sec, ind_block_1, 0, BLOCK_SECTOR_SIZE, 0);
     i = 0;
     /*  인덱스 블록에 저장된 디스크 블록 번호를 접근 */
-    while(ind_block_1->map_table[i] > 0){
+    while((int)ind_block_1->map_table[i] > 0) {
       /*  free_map 업데이트를 통해 디스크 블록 할당 해지 */
       free_map_release (ind_block_1->map_table[i], 1);
       i++;
     }
-    /*  Direct 방식으로 할당된 디스크 블록 해지*/
-    while (inode_disk->direct_map_table[i] > 0){
-      /*  free_map 업데이트를 통해 디스크 블록 할당 해지 */
-      free_map_release (inode_disk->direct_map_table[i], 1);
-      i++;
-    }
+  }
+
+  /*  Direct 방식으로 할당된 디스크 블록 해지*/
+  i = 0;
+  while ((int)inode_disk->direct_map_table[i] > 0) {
+    /*  free_map 업데이트를 통해 디스크 블록 할당 해지 */
+    free_map_release (inode_disk->direct_map_table[i], 1);
+    i++;
   }
 
   free (ind_block_1);
@@ -464,6 +468,7 @@ inode_close (struct inode *inode)
     {
       /*  inode의 on-disk inode 획득(get_disk_inode() 이용) */
       get_disk_inode (inode, disk_inode);
+      ASSERT (disk_inode);
       /*  디스크 블록 반환(free_inode_sectors() 이용) */
       free_inode_sectors (disk_inode);
       /*  on-disk inode 반환 (free_map_release() 이용) */
@@ -520,6 +525,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
     offset += chunk_size;
     bytes_read += chunk_size;
   }
+  free (disk_inode);
 
   return bytes_read;
 }
