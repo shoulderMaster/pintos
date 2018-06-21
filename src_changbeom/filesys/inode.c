@@ -87,6 +87,7 @@ static void locate_byte (off_t pos, struct sector_location *sec_loc)
   } else {
     sec_loc->directness = OUT_LIMIT;
   }
+
   return;
 }
 
@@ -95,7 +96,6 @@ static bool register_sector (struct inode_disk *inode_disk,
 {
   struct inode_indirect_block *new_block = NULL, *double_indirect_directory_block = NULL;
   bool to_write = false;
-  locate_byte (new_sector, &sec_loc);
   switch (sec_loc.directness)
   {
     case NORMAL_DIRECT:
@@ -243,7 +243,7 @@ bool inode_update_file_length (struct inode_disk* inode_disk, off_t start_pos, o
   zeroes = calloc (sizeof (char), BLOCK_SECTOR_SIZE);
 
   /*  블록 단위로 loop을 수행하며 새로운 디스크 블록 할당 */
-  while (size > 0){
+  while (size > 0) {
 
     /*  디스크 블록 내 오프셋 계산 */
     int sector_ofs = offset % BLOCK_SECTOR_SIZE;
@@ -539,7 +539,6 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size, off_t offs
   int old_length = 0;
   int write_end = 0;
 
-
   ASSERT (disk_inode);
   get_disk_inode (inode, disk_inode);
 
@@ -557,6 +556,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size, off_t offs
     if(!inode_update_file_length (disk_inode, old_length, write_end)) {
       NOT_REACHED ();
     }
+    disk_inode->length = write_end + 1;
+    bc_write (inode->sector, disk_inode, 0, BLOCK_SECTOR_SIZE, 0);
   }
 
   lock_release (&inode->extend_lock);
@@ -585,7 +586,6 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size, off_t offs
     bytes_written += chunk_size;
   }
 
-  bc_write (inode->sector, disk_inode, 0, BLOCK_SECTOR_SIZE, 0);
   free (disk_inode);
 
   return bytes_written;
