@@ -447,6 +447,7 @@ void
 inode_close (struct inode *inode) 
 {
   struct inode_disk *disk_inode = (struct inode_disk*)malloc (sizeof (struct inode_disk));
+  ASSERT (disk_inode);
   /* Ignore null pointer. */
   if (inode == NULL)
     return;
@@ -492,6 +493,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
   struct inode_disk *disk_inode = (struct inode_disk*)malloc (sizeof (struct inode_disk));
+  ASSERT (disk_inode);
   get_disk_inode (inode, disk_inode);
 
   bc_read (inode->sector, disk_inode, 0, BLOCK_SECTOR_SIZE, 0);
@@ -529,63 +531,62 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
    (Normally a write at end of file would extend the inode, but
    growth is not yet implemented.) */
 off_t
-inode_write_at (struct inode *inode, const void *buffer_, off_t size,
-                off_t offset) 
+inode_write_at (struct inode *inode, const void *buffer_, off_t size, off_t offset) 
 {
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
-  //uint8_t *bounce = NULL;
+  struct inode_disk *disk_inode = (struct inode_disk*)malloc (sizeof (struct inode_disk));
+  int old_length = 0;
+  int write_end = 0;
 
-  if (inode->deny_write_cnt)
+
+  ASSERT (disk_inode);
+  get_disk_inode (inode, disk_inode);
+
+  if (inode->deny_write_cnt) {
+    free (disk_inode);
     return 0;
+  }
+
+  lock_acquire (&inode->extend_lock);
+
+  old_length = disk_inode->length;
+  write_end = offset + (size - 1);
+  if (write_end > (old_length - 1)) {
+    /*  파일길이가 증가하였을 경우, on-disk inode 업데이트 */
+    if(!inode_update_file_length (disk_inode, old_length, write_end)) {
+      NOT_REACHED ();
+    }
+  }
+
+  lock_release (&inode->extend_lock);
 
   while (size > 0) 
-    {
-      /* Sector to write, starting byte offset within sector. */
-      block_sector_t sector_idx = byte_to_sector (inode, offset);
-      int sector_ofs = offset % BLOCK_SECTOR_SIZE;
+  {
+    /* Sector to write, starting byte offset within sector. */
+    block_sector_t sector_idx = byte_to_sector (disk_inode, offset);
+    int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
-      /* Bytes left in inode, bytes left in sector, lesser of the two. */
-      off_t inode_left = inode_length (inode) - offset;
-      int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
-      int min_left = inode_left < sector_left ? inode_left : sector_left;
+    /* Bytes left in inode, bytes left in sector, lesser of the two. */
+    off_t inode_left = inode_length (inode) - offset;
+    int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
+    int min_left = inode_left < sector_left ? inode_left : sector_left;
 
-      /* Number of bytes to actually write into this sector. */
-      int chunk_size = size < min_left ? size : min_left;
-      if (chunk_size <= 0)
-        break;
+    /* Number of bytes to actually write into this sector. */
+    int chunk_size = size < min_left ? size : min_left;
+    if (chunk_size <= 0)
+      break;
 
-      /* // 한 block을 모두 꽉채워 write하는 경우
-      if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
-        {
-          block_write (fs_device, sector_idx, buffer + bytes_written);
-        }
-      // 섹터의 일부만 write하는 경우 sector의 일부만 write할 수 없기 때문에 이렇게 처리함
-      else 
-        {
-          if (bounce == NULL) 
-            {
-              bounce = malloc (BLOCK_SECTOR_SIZE);
-              if (bounce == NULL)
-                break;
-            }
+    bc_write (sector_idx, buffer, bytes_written, chunk_size, sector_ofs);
 
-          if (sector_ofs > 0 || chunk_size < sector_left) 
-            block_read (fs_device, sector_idx, bounce);
-          else // sector offset이 0인 경우 
-            memset (bounce, 0, BLOCK_SECTOR_SIZE);
-          memcpy (bounce + sector_ofs, buffer + bytes_written, chunk_size);
-          block_write (fs_device, sector_idx, bounce);
-        } */
+    /* Advance. */
+    size -= chunk_size;
+    offset += chunk_size;
+    bytes_written += chunk_size;
+  }
 
-      bc_write (sector_idx, buffer, bytes_written, chunk_size, sector_ofs);
-
-      /* Advance. */
-      size -= chunk_size;
-      offset += chunk_size;
-      bytes_written += chunk_size;
-    }
-  //free (bounce);
+  bc_write (inode->sector, disk_inode, 0, BLOCK_SECTOR_SIZE, 0);
+  free (disk_inode);
 
   return bytes_written;
 }
@@ -614,5 +615,9 @@ inode_allow_write (struct inode *inode)
 off_t
 inode_length (const struct inode *inode)
 {
-  return inode->data.length;
+  struct inode_disk disk_inode;
+
+  bc_read (inode->sector, &disk_inode, 0, BLOCK_SECTOR_SIZE, 0);
+
+  return disk_inode.length;
 }
