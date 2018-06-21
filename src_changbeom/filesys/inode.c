@@ -119,7 +119,7 @@ static bool register_sector (struct inode_disk *inode_disk,
       new_block->map_table[sec_loc.index1] = new_sector;
 
       /*  인덱스 블록을 buffer cache에 기록 */
-      bc_write (new_sector, new_block, 0, BLOCK_SECTOR_SIZE, 0);
+      bc_write (inode_disk->indirect_block_sec, new_block, 0, BLOCK_SECTOR_SIZE, 0);
       break;
 
     case DOUBLE_INDIRECT:
@@ -158,7 +158,7 @@ static bool register_sector (struct inode_disk *inode_disk,
       }
 
       /*  인덱스 블록을 buffer cache에 기록 */
-      bc_write (new_sector, new_block, 0, BLOCK_SECTOR_SIZE, 0);
+      bc_write (inode_disk->indirect_block_sec, new_block, 0, BLOCK_SECTOR_SIZE, 0);
       break;
 
     default:
@@ -196,6 +196,7 @@ byte_to_sector (const struct inode_disk *inode_disk, off_t pos)
         if (ind_block) {
           /*  buffer cache에서 인덱스 블록을 읽어 옴 */
           bc_read (inode_disk->indirect_block_sec, ind_block, 0, BLOCK_SECTOR_SIZE, 0);
+          ASSERT (ind_block->map_table[sec_loc.index1] != -1);
           
           /*  인덱스 블록에서 디스크 블록 번호 확인 */
           result_sec = ind_block->map_table[sec_loc.index1];
@@ -496,8 +497,6 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   ASSERT (disk_inode);
   get_disk_inode (inode, disk_inode);
 
-  bc_read (inode->sector, disk_inode, 0, BLOCK_SECTOR_SIZE, 0);
-
   while (size > 0) 
   {
     /* Disk sector to read, starting byte offset within sector. */
@@ -567,6 +566,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size, off_t offs
     /* Sector to write, starting byte offset within sector. */
     block_sector_t sector_idx = byte_to_sector (disk_inode, offset);
     int sector_ofs = offset % BLOCK_SECTOR_SIZE;
+
+    ASSERT (sector_idx != -1);
 
     /* Bytes left in inode, bytes left in sector, lesser of the two. */
     off_t inode_left = inode_length (inode) - offset;
