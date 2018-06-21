@@ -258,7 +258,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 /* 파일 디스크립터 사용이 끝나면 
    이 시스템콜을 호출하여 해당 fd의 file object를 해제할 수 있음 */
 void close (int fd) {
-  return process_close_file (fd);  
+  lock_acquire (&rw_lock);
+  process_close_file (fd);  
+  lock_release (&rw_lock);
+  return;
 }
 
 /* 파일 객체의 읽고 쓸 position이 어딘지 알려주는 시스템 콜 */
@@ -281,7 +284,7 @@ unsigned tell (int fd) {
 void seek (int fd, unsigned position) {
   struct file *file_object = process_get_file (fd);
   
- if (file_object == NULL || position >= file_length (file_object)) {
+ if (file_object == NULL) {
    
     /* fd가 STDIN or STDOUT 이거나 파일 객체가 없거나
        position이 파일 크기를 벗어나면 그냥 리턴함 */ 
@@ -478,11 +481,15 @@ void exit (int status)
 // 디스크에서 파일을 생성하는 시스템 콜 함수
 bool create (const char *file, unsigned initial_size)
 {
+  bool success;
   // create-null testcase를 pass하기 위한 예외 처리
   if (file == NULL) {
     exit (-1);
   } else {
-    return filesys_create (file, initial_size);
+    lock_acquire (&rw_lock);
+    success = filesys_create (file, initial_size);
+    lock_release (&rw_lock);
+    return success;
   }
 
 }
@@ -490,7 +497,11 @@ bool create (const char *file, unsigned initial_size)
 // 디스크에서 파일을 지우는 시스템 콜 함수
 bool remove (const char *file)
 {
-  return filesys_remove(file);
+  bool success;
+  lock_acquire (&rw_lock);
+  success = filesys_remove(file);
+  lock_release (&rw_lock);
+  return success;
 }
 
 // 새로운 자식 프로세스를 생성하고 디스크에 있는 프로그램을 실행함
